@@ -1,0 +1,18 @@
+name = "mirrorworkshop"
+main = "index.js"
+compatibility_date = "2024-01-01"
+
+# KV 绑定声明（不指定 ID，由仪表板手动绑定）
+[[kv_namespaces]]
+binding = "B2_KV"
+
+# 队列生产者（用于发送消息）
+[[queues.producers]]
+queue = "mirror-tasks"
+binding = "TASKS_QUEUE"
+
+# 队列消费者（用于处理消息）
+[[queues.consumers]]
+queue = "mirror-tasks"
+max_batch_size = 1
+max_retries = 3
