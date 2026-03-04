@@ -948,7 +948,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 11. 队列信息显示（轮询间隔60秒）
+    // 11. 队列信息显示（轮询间隔60秒，仅显示状态，不显示进度）
     // ============================================================================
 
     const queueMenuBtn = safeGet('queueMenuBtn');
@@ -964,35 +964,31 @@ export const clientJS = `
             const data = await res.json();
             const tasks = data.tasks || [];
 
-            // 更新队列信息显示
+            // 更新队列信息显示（只显示第一个任务名称）
             if (queueFileCount && queueFileName) {
                 if (tasks.length === 0) {
                     queueFileCount.style.display = 'inline';
                     queueFileName.style.display = 'none';
                     queueFileCount.innerText = '暂无任务';
                 } else {
-                    // 计算总文件数和剩余文件数（取第一个任务示例）
                     const first = tasks[0];
-                    const total = first.totalFiles || 0;
-                    const processed = first.processedFiles || 0;
-                    const remaining = total - processed;
-                    queueFileCount.style.display = 'inline';
-                    queueFileName.style.display = 'none';
-                    queueFileCount.innerText = \`总文件: \${total} 剩余: \${remaining}\`;
+                    queueFileCount.style.display = 'none';
+                    queueFileName.style.display = 'inline';
+                    queueFileName.innerText = `正在上传: ${first.name}`;
                 }
             }
 
-            // 更新队列详情面板
+            // 更新队列详情面板（仅显示项目名称和状态）
             if (queueTaskList) {
                 if (tasks.length === 0) {
                     queueTaskList.innerHTML = '<div class="empty-state">暂无活动任务</div>';
                 } else {
-                    queueTaskList.innerHTML = tasks.map(task => \`
+                    queueTaskList.innerHTML = tasks.map(task => `
                         <div class="queue-task-item">
-                            <span class="task-name">\${task.name}</span>
-                            <span class="task-progress">\${task.progress}%</span>
+                            <span class="task-name">${task.name}</span>
+                            <span class="task-status">${task.status === 'processing' ? '正在上传' : '等待中'}</span>
                         </div>
-                    \`).join('');
+                    `).join('');
                 }
             }
         } catch (e) {
