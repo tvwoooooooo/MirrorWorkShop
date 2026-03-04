@@ -700,14 +700,15 @@ export const clientJS = `
         }
     }
 
-    // GitHub 删除模式切换
+    // GitHub 删除模式切换（始终保留 btn-danger 类）
     function toggleGithubDeleteMode() {
         const deleteBtn = safeGet('deleteGithubTokenBtn');
+        if (!deleteBtn) return;
+        
         if (!githubDeleteMode) {
             // 进入删除模式
             githubDeleteMode = true;
-            deleteBtn.classList.add('btn-danger');
-            deleteBtn.innerHTML = '<i class="fas fa-trash"></i> 删除';
+            deleteBtn.innerHTML = '<i class="fas fa-trash"></i> 删除'; // 改变文字，保留图标
             // 添加取消按钮
             let cancelBtn = document.getElementById('cancelGithubDelete');
             if (!cancelBtn) {
@@ -718,8 +719,7 @@ export const clientJS = `
                 deleteBtn.parentNode.appendChild(cancelBtn);
                 cancelBtn.addEventListener('click', () => {
                     githubDeleteMode = false;
-                    deleteBtn.classList.remove('btn-danger');
-                    deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
+                    deleteBtn.innerHTML = '<i class="fas fa-trash"></i>'; // 恢复文字，仍保留红色
                     cancelBtn.remove();
                     githubSelectedTokens.clear();
                     renderGithubTokens();
@@ -732,32 +732,27 @@ export const clientJS = `
                 alert('请至少选择一个令牌');
                 return;
             }
-            // 将 Set 转换为数组并排序（从大到小删除避免索引偏移）
             const indices = Array.from(githubSelectedTokens).sort((a,b)=>b-a);
             Promise.all(indices.map(async idx => {
                 await fetch(apiBase + '/tokens/github?index=' + idx, { method: 'DELETE' });
             })).then(() => {
-                // 重新加载令牌列表
                 loadGithubTokens();
                 // 退出删除模式
                 githubDeleteMode = false;
+                deleteBtn.innerHTML = '<i class="fas fa-trash"></i>'; // 恢复文字
                 document.getElementById('cancelGithubDelete')?.remove();
                 githubSelectedTokens.clear();
-                const deleteBtn = safeGet('deleteGithubTokenBtn');
-                if (deleteBtn) {
-                    deleteBtn.classList.remove('btn-danger');
-                    deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
-                }
             }).catch(e => alert('删除失败：' + e.message));
         }
     }
 
-    // Docker 删除模式切换（类似）
+    // Docker 删除模式切换（始终保留 btn-danger 类）
     function toggleDockerDeleteMode() {
         const deleteBtn = safeGet('deleteDockerTokenBtn');
+        if (!deleteBtn) return;
+        
         if (!dockerDeleteMode) {
             dockerDeleteMode = true;
-            deleteBtn.classList.add('btn-danger');
             deleteBtn.innerHTML = '<i class="fas fa-trash"></i> 删除';
             let cancelBtn = document.getElementById('cancelDockerDelete');
             if (!cancelBtn) {
@@ -768,7 +763,6 @@ export const clientJS = `
                 deleteBtn.parentNode.appendChild(cancelBtn);
                 cancelBtn.addEventListener('click', () => {
                     dockerDeleteMode = false;
-                    deleteBtn.classList.remove('btn-danger');
                     deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
                     cancelBtn.remove();
                     dockerSelectedTokens.clear();
@@ -787,13 +781,9 @@ export const clientJS = `
             })).then(() => {
                 loadDockerTokens();
                 dockerDeleteMode = false;
+                deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
                 document.getElementById('cancelDockerDelete')?.remove();
                 dockerSelectedTokens.clear();
-                const deleteBtn = safeGet('deleteDockerTokenBtn');
-                if (deleteBtn) {
-                    deleteBtn.classList.remove('btn-danger');
-                    deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
-                }
             }).catch(e => alert('删除失败：' + e.message));
         }
     }
