@@ -14,8 +14,18 @@ export async function queueHandler(batch, env, ctx) {
         await createMasterTask(env, taskId, owner, repo, bucketId, filePaths);
         message.ack();
       } catch (error) {
-        console.error('Master task failed', error);
-        await completeMasterTask(env, task.taskId, 'failed');
+        console.error('Master task failed:', error);
+        // 保存详细错误信息到任务中
+        await env.B2_KV.put(`master:${task.taskId}`, JSON.stringify({
+          status: 'failed',
+          owner: task.owner,
+          repo: task.repo,
+          bucketId: task.bucketId,
+          error: error.message,
+          stack: error.stack,
+          createdAt: Date.now(),
+          failedAt: Date.now()
+        }));
         message.ack();
       }
     } else if (task.type === 'batch') {
@@ -36,10 +46,7 @@ export async function handleQueueStatus(request, env) {
   const activeTasks = await env.B2_KV.get('active_tasks', 'json') || [];
   const tasks = activeTasks.map(t => ({
     name: t.name,
-    progress: t.progress || 0,
-    totalFiles: t.totalFiles,
-    processedFiles: t.processedFiles,
-    currentFile: t.currentFile
+    status: t.status || 'processing'
   }));
   return Response.json({ tasks });
 }
