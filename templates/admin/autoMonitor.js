@@ -4,11 +4,10 @@ export const autoMonitorHTML = `
 .token-tabs {
     display: flex;
     gap: 0.25rem;
-    background: #e9eef2;
-    padding: 0.25rem 0.25rem 0 0.25rem;
-    border-radius: 8px 8px 0 0;
-    width: fit-content;
+    background: transparent;
+    padding: 0;
     margin-top: 1.5rem;
+    border-bottom: 2px solid #e2e8f0; /* 只有底部线条，类似浏览器标签栏 */
 }
 .token-tab {
     padding: 0.5rem 1.5rem;
@@ -20,20 +19,24 @@ export const autoMonitorHTML = `
     display: flex;
     align-items: center;
     gap: 0.3rem;
-    background: #d1d9e0;
-    color: #334155;
+    background: transparent;
+    color: #64748b;
+    border: 1px solid transparent;
+    border-bottom: none;
+    margin-bottom: -2px; /* 让激活标签覆盖底部边框 */
 }
 .token-tab.active {
     background: white;
     color: #0f172a;
-    box-shadow: 0 -2px 4px rgba(0,0,0,0.02);
+    border-color: #e2e8f0;
+    border-bottom-color: white;
+    border-radius: 6px 6px 0 0;
 }
 .token-panel {
-    border: 1px solid #e2e8f0;
-    border-top: none;
-    background: white;
-    border-radius: 0 8px 8px 8px;
-    padding: 1rem;
+    padding: 1rem 0 0 0;
+    background: transparent; /* 无背景色，继承卡片背景 */
+    border: none;
+    border-radius: 0;
 }
 .panel-header {
     display: flex;
@@ -142,15 +145,15 @@ export const autoMonitorHTML = `
         <input type="number" id="monitorDays" value="1" min="1" max="30"> 天一次
     </div>
 
-    <!-- API 令牌配置区域（标签页） -->
+    <!-- API 令牌配置区域（标签页）直接放置，无额外边框 -->
     <div style="margin-top: 1.5rem; border-top: 1px solid #e2e8f0; padding-top: 1rem;">
-        <!-- 标签页 -->
+        <!-- 标签页（无背景，只有下划线） -->
         <div class="token-tabs" id="tokenTabs">
             <div class="token-tab active" data-token-type="github"><i class="fab fa-github"></i> Github令牌</div>
             <div class="token-tab" data-token-type="docker"><i class="fab fa-docker"></i> Docker令牌</div>
         </div>
 
-        <!-- GitHub 令牌面板 -->
+        <!-- GitHub 令牌面板（无边框背景） -->
         <div class="token-panel" id="githubTokenPanel">
             <div class="panel-header">
                 <button class="btn-icon" id="addGithubTokenBtn"><i class="fas fa-plus"></i> +添加令牌</button>
@@ -170,7 +173,7 @@ export const autoMonitorHTML = `
     </div>
 </div>
 
-<!-- GitHub 令牌模态框 -->
+<!-- GitHub 令牌模态框（不变） -->
 <div class="modal-overlay" id="githubTokenModal" style="display: none;">
     <div class="modal-content" style="max-width: 450px;">
         <div class="modal-header">
@@ -193,7 +196,7 @@ export const autoMonitorHTML = `
     </div>
 </div>
 
-<!-- Docker 令牌模态框 -->
+<!-- Docker 令牌模态框（不变） -->
 <div class="modal-overlay" id="dockerTokenModal" style="display: none;">
     <div class="modal-content" style="max-width: 450px;">
         <div class="modal-header">
