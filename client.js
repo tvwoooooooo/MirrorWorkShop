@@ -32,11 +32,13 @@ export const clientJS = `
     let queueInfoInterval = null;
     let currentProjectToBackup = null;
 
-    // 令牌管理相关
+    // 令牌管理相关（新增）
     let githubTokens = [];
     let dockerTokens = [];
-    let tokenDeleteModeActive = false;
-    let selectedTokens = new Set();
+    let githubDeleteMode = false;          // GitHub 面板是否处于删除模式
+    let dockerDeleteMode = false;          // Docker 面板是否处于删除模式
+    let githubSelectedTokens = new Set();  // 选中的 GitHub 令牌索引
+    let dockerSelectedTokens = new Set();  // 选中的 Docker 令牌索引
 
     // ============================================================================
     // 3. 数据加载与更新
@@ -549,18 +551,10 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 9. 令牌管理（GitHub）
+    // 9. 令牌管理（GitHub 和 Docker）
     // ============================================================================
 
-    const addGithubTokenBtn = safeGet('addGithubTokenBtn');
-    const githubTokenModal = safeGet('githubTokenModal');
-    const closeGithubTokenModal = safeGet('closeGithubTokenModal');
-    const githubTokenForm = safeGet('githubTokenForm');
-    const githubTokenName = safeGet('githubTokenName');
-    const githubTokenValue = safeGet('githubTokenValue');
-    const editingGithubTokenIndex = safeGet('editingGithubTokenIndex');
-    const githubTokensList = safeGet('githubTokensList');
-
+    // 加载 GitHub 令牌
     async function loadGithubTokens() {
         try {
             const res = await fetch(apiBase + '/tokens/github');
@@ -572,19 +566,33 @@ export const clientJS = `
         }
     }
 
+    // 加载 Docker 令牌
+    async function loadDockerTokens() {
+        try {
+            const res = await fetch(apiBase + '/tokens/docker');
+            if (!res.ok) throw new Error('加载失败');
+            dockerTokens = await res.json();
+            renderDockerTokens();
+        } catch (e) {
+            console.error('加载 Docker 令牌失败', e);
+        }
+    }
+
+    // 渲染 GitHub 令牌
     function renderGithubTokens() {
-        if (!githubTokensList) return;
+        const container = safeGet('githubTokensList');
+        if (!container) return;
         if (githubTokens.length === 0) {
-            githubTokensList.innerHTML = '<div class="empty-state">暂无 GitHub 令牌</div>';
+            container.innerHTML = '<div class="empty-state">暂无 GitHub 令牌</div>';
             return;
         }
-        const isDeleteMode = tokenDeleteModeActive;
+        const isDeleteMode = githubDeleteMode;
         const cardsHtml = githubTokens.map(token => {
-            const selectedClass = selectedTokens.has(token.index) ? 'bucket-card-selected' : '';
+            const selectedClass = githubSelectedTokens.has(token.index) ? 'bucket-card-selected' : '';
             return \`
                 <div class="bucket-card \${isDeleteMode ? 'delete-mode' : ''} \${selectedClass}" data-index="\${token.index}">
                     <div class="checkbox">
-                        <input type="checkbox" class="token-checkbox" data-index="\${token.index}" \${selectedTokens.has(token.index) ? 'checked' : ''}>
+                        <input type="checkbox" class="github-token-checkbox" data-index="\${token.index}" \${githubSelectedTokens.has(token.index) ? 'checked' : ''}>
                     </div>
                     <div class="bucket-content">
                         <span class="bucket-name">\${token.name}</span>
@@ -593,18 +601,17 @@ export const clientJS = `
                 </div>
             \`;
         }).join('');
-        githubTokensList.innerHTML = cardsHtml;
+        container.innerHTML = cardsHtml;
 
         // 绑定复选框变化
-        document.querySelectorAll('.token-checkbox').forEach(cb => {
+        document.querySelectorAll('.github-token-checkbox').forEach(cb => {
             cb.addEventListener('change', (e) => {
                 const index = parseInt(e.target.dataset.index);
                 if (e.target.checked) {
-                    selectedTokens.add(index);
+                    githubSelectedTokens.add(index);
                 } else {
-                    selectedTokens.delete(index);
+                    githubSelectedTokens.delete(index);
                 }
-                // 更新选中样式
                 const card = e.target.closest('.bucket-card');
                 if (card) {
                     if (e.target.checked) {
@@ -618,10 +625,10 @@ export const clientJS = `
 
         // 点击卡片切换复选框（仅在删除模式下）
         if (isDeleteMode) {
-            document.querySelectorAll('.bucket-card[data-index]').forEach(card => {
+            document.querySelectorAll('#githubTokensList .bucket-card[data-index]').forEach(card => {
                 card.addEventListener('click', (e) => {
-                    if (e.target.classList.contains('checkbox') || e.target.classList.contains('bucket-checkbox')) return;
-                    const checkbox = card.querySelector('.token-checkbox');
+                    if (e.target.classList.contains('checkbox') || e.target.classList.contains('github-token-checkbox')) return;
+                    const checkbox = card.querySelector('.github-token-checkbox');
                     if (checkbox) {
                         checkbox.checked = !checkbox.checked;
                         const changeEvent = new Event('change', { bubbles: true });
@@ -631,6 +638,173 @@ export const clientJS = `
             });
         }
     }
+
+    // 渲染 Docker 令牌
+    function renderDockerTokens() {
+        const container = safeGet('dockerTokensList');
+        if (!container) return;
+        if (dockerTokens.length === 0) {
+            container.innerHTML = '<div class="empty-state">暂无 Docker 令牌</div>';
+            return;
+        }
+        const isDeleteMode = dockerDeleteMode;
+        const cardsHtml = dockerTokens.map(token => {
+            const selectedClass = dockerSelectedTokens.has(token.index) ? 'bucket-card-selected' : '';
+            return \`
+                <div class="bucket-card \${isDeleteMode ? 'delete-mode' : ''} \${selectedClass}" data-index="\${token.index}">
+                    <div class="checkbox">
+                        <input type="checkbox" class="docker-token-checkbox" data-index="\${token.index}" \${dockerSelectedTokens.has(token.index) ? 'checked' : ''}>
+                    </div>
+                    <div class="bucket-content">
+                        <span class="bucket-name">\${token.name}</span>
+                        <span style="font-size: 0.85rem; color: #64748b;">使用: \${token.usageCount}</span>
+                    </div>
+                </div>
+            \`;
+        }).join('');
+        container.innerHTML = cardsHtml;
+
+        // 绑定复选框变化
+        document.querySelectorAll('.docker-token-checkbox').forEach(cb => {
+            cb.addEventListener('change', (e) => {
+                const index = parseInt(e.target.dataset.index);
+                if (e.target.checked) {
+                    dockerSelectedTokens.add(index);
+                } else {
+                    dockerSelectedTokens.delete(index);
+                }
+                const card = e.target.closest('.bucket-card');
+                if (card) {
+                    if (e.target.checked) {
+                        card.classList.add('bucket-card-selected');
+                    } else {
+                        card.classList.remove('bucket-card-selected');
+                    }
+                }
+            });
+        });
+
+        // 点击卡片切换复选框（仅在删除模式下）
+        if (isDeleteMode) {
+            document.querySelectorAll('#dockerTokensList .bucket-card[data-index]').forEach(card => {
+                card.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('checkbox') || e.target.classList.contains('docker-token-checkbox')) return;
+                    const checkbox = card.querySelector('.docker-token-checkbox');
+                    if (checkbox) {
+                        checkbox.checked = !checkbox.checked;
+                        const changeEvent = new Event('change', { bubbles: true });
+                        checkbox.dispatchEvent(changeEvent);
+                    }
+                });
+            });
+        }
+    }
+
+    // GitHub 删除模式切换
+    function toggleGithubDeleteMode() {
+        const deleteBtn = safeGet('deleteGithubTokenBtn');
+        if (!githubDeleteMode) {
+            // 进入删除模式
+            githubDeleteMode = true;
+            deleteBtn.classList.add('btn-danger');
+            deleteBtn.innerHTML = '<i class="fas fa-trash"></i> 删除';
+            // 添加取消按钮
+            let cancelBtn = document.getElementById('cancelGithubDelete');
+            if (!cancelBtn) {
+                cancelBtn = document.createElement('button');
+                cancelBtn.className = 'btn-icon';
+                cancelBtn.id = 'cancelGithubDelete';
+                cancelBtn.innerHTML = '<i class="fas fa-times"></i> 取消';
+                deleteBtn.parentNode.appendChild(cancelBtn);
+                cancelBtn.addEventListener('click', () => {
+                    githubDeleteMode = false;
+                    deleteBtn.classList.remove('btn-danger');
+                    deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
+                    cancelBtn.remove();
+                    githubSelectedTokens.clear();
+                    renderGithubTokens();
+                });
+            }
+            renderGithubTokens();
+        } else {
+            // 执行删除
+            if (githubSelectedTokens.size === 0) {
+                alert('请至少选择一个令牌');
+                return;
+            }
+            // 将 Set 转换为数组并排序（从大到小删除避免索引偏移）
+            const indices = Array.from(githubSelectedTokens).sort((a,b)=>b-a);
+            Promise.all(indices.map(async idx => {
+                await fetch(apiBase + '/tokens/github?index=' + idx, { method: 'DELETE' });
+            })).then(() => {
+                // 重新加载令牌列表
+                loadGithubTokens();
+                // 退出删除模式
+                githubDeleteMode = false;
+                document.getElementById('cancelGithubDelete')?.remove();
+                githubSelectedTokens.clear();
+                const deleteBtn = safeGet('deleteGithubTokenBtn');
+                if (deleteBtn) {
+                    deleteBtn.classList.remove('btn-danger');
+                    deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
+                }
+            }).catch(e => alert('删除失败：' + e.message));
+        }
+    }
+
+    // Docker 删除模式切换（类似）
+    function toggleDockerDeleteMode() {
+        const deleteBtn = safeGet('deleteDockerTokenBtn');
+        if (!dockerDeleteMode) {
+            dockerDeleteMode = true;
+            deleteBtn.classList.add('btn-danger');
+            deleteBtn.innerHTML = '<i class="fas fa-trash"></i> 删除';
+            let cancelBtn = document.getElementById('cancelDockerDelete');
+            if (!cancelBtn) {
+                cancelBtn = document.createElement('button');
+                cancelBtn.className = 'btn-icon';
+                cancelBtn.id = 'cancelDockerDelete';
+                cancelBtn.innerHTML = '<i class="fas fa-times"></i> 取消';
+                deleteBtn.parentNode.appendChild(cancelBtn);
+                cancelBtn.addEventListener('click', () => {
+                    dockerDeleteMode = false;
+                    deleteBtn.classList.remove('btn-danger');
+                    deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
+                    cancelBtn.remove();
+                    dockerSelectedTokens.clear();
+                    renderDockerTokens();
+                });
+            }
+            renderDockerTokens();
+        } else {
+            if (dockerSelectedTokens.size === 0) {
+                alert('请至少选择一个令牌');
+                return;
+            }
+            const indices = Array.from(dockerSelectedTokens).sort((a,b)=>b-a);
+            Promise.all(indices.map(async idx => {
+                await fetch(apiBase + '/tokens/docker?index=' + idx, { method: 'DELETE' });
+            })).then(() => {
+                loadDockerTokens();
+                dockerDeleteMode = false;
+                document.getElementById('cancelDockerDelete')?.remove();
+                dockerSelectedTokens.clear();
+                const deleteBtn = safeGet('deleteDockerTokenBtn');
+                if (deleteBtn) {
+                    deleteBtn.classList.remove('btn-danger');
+                    deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
+                }
+            }).catch(e => alert('删除失败：' + e.message));
+        }
+    }
+
+    // GitHub 添加令牌模态框
+    const githubTokenModal = safeGet('githubTokenModal');
+    const closeGithubTokenModal = safeGet('closeGithubTokenModal');
+    const githubTokenForm = safeGet('githubTokenForm');
+    const githubTokenName = safeGet('githubTokenName');
+    const githubTokenValue = safeGet('githubTokenValue');
+    const editingGithubTokenIndex = safeGet('editingGithubTokenIndex');
 
     function openGithubTokenModal() {
         githubTokenName.value = '';
@@ -670,21 +844,86 @@ export const clientJS = `
         });
     }
 
-    if (addGithubTokenBtn) {
-        addGithubTokenBtn.addEventListener('click', openGithubTokenModal);
+    // Docker 添加令牌模态框
+    const dockerTokenModal = safeGet('dockerTokenModal');
+    const closeDockerTokenModal = safeGet('closeDockerTokenModal');
+    const dockerTokenForm = safeGet('dockerTokenForm');
+    const dockerTokenName = safeGet('dockerTokenName');
+    const dockerTokenValue = safeGet('dockerTokenValue');
+    const editingDockerTokenIndex = safeGet('editingDockerTokenIndex');
+
+    function openDockerTokenModal() {
+        dockerTokenName.value = '';
+        dockerTokenValue.value = '';
+        editingDockerTokenIndex.value = '-1';
+        dockerTokenModal.style.display = 'flex';
     }
 
-    // 令牌删除模式（参考桶删除模式）
-    const tokenDeleteModeBtn = document.createElement('button');
-    tokenDeleteModeBtn.className = 'btn-icon btn-danger';
-    tokenDeleteModeBtn.id = 'tokenDeleteModeBtn';
-    tokenDeleteModeBtn.innerHTML = '<i class="fas fa-trash"></i>';
-    tokenDeleteModeBtn.style.marginLeft = '0.5rem';
-    // 将按钮添加到令牌列表上方（在 autoMonitor 卡片内，可以手动添加，但为了简化，我们动态添加）
-    // 但最好在 HTML 中直接放置一个删除按钮，我们在 autoMonitor.js 中添加了 "删除令牌" 按钮吗？没有，我们需要在 autoMonitor.js 中添加一个按钮，但用户未要求输出 autoMonitor.js，所以我们暂时不实现删除，仅提供添加和查看。
+    if (closeDockerTokenModal) {
+        closeDockerTokenModal.addEventListener('click', () => { dockerTokenModal.style.display = 'none'; });
+    }
+    if (dockerTokenModal) {
+        dockerTokenModal.addEventListener('click', (e) => { if (e.target === dockerTokenModal) dockerTokenModal.style.display = 'none'; });
+    }
 
-    // 为了完整性，我们提供一个简单的删除功能：在令牌卡片上添加垃圾桶图标，点击直接删除（无需选择模式）
-    // 但用户要求像桶一样有选择模式，比较复杂，暂时不实现。
+    if (dockerTokenForm) {
+        dockerTokenForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = dockerTokenName.value.trim();
+            const token = dockerTokenValue.value.trim();
+            if (!name || !token) {
+                alert('请填写名称和令牌');
+                return;
+            }
+            const res = await fetch(apiBase + '/tokens/docker', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, token })
+            });
+            if (res.ok) {
+                alert('令牌已保存');
+                dockerTokenModal.style.display = 'none';
+                await loadDockerTokens();
+            } else {
+                alert('保存失败');
+            }
+        });
+    }
+
+    // 标签页切换
+    const tokenTabs = document.querySelectorAll('.token-tab');
+    const githubPanel = safeGet('githubTokenPanel');
+    const dockerPanel = safeGet('dockerTokenPanel');
+
+    if (tokenTabs.length) {
+        tokenTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tokenTabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                const type = tab.dataset.tokenType;
+                if (type === 'github') {
+                    if (githubPanel) githubPanel.classList.remove('hide');
+                    if (dockerPanel) dockerPanel.classList.add('hide');
+                } else {
+                    if (githubPanel) githubPanel.classList.add('hide');
+                    if (dockerPanel) dockerPanel.classList.remove('hide');
+                }
+            });
+        });
+    }
+
+    // 绑定添加和删除按钮
+    const addGithubBtn = safeGet('addGithubTokenBtn');
+    if (addGithubBtn) addGithubBtn.addEventListener('click', openGithubTokenModal);
+
+    const addDockerBtn = safeGet('addDockerTokenBtn');
+    if (addDockerBtn) addDockerBtn.addEventListener('click', openDockerTokenModal);
+
+    const deleteGithubBtn = safeGet('deleteGithubTokenBtn');
+    if (deleteGithubBtn) deleteGithubBtn.addEventListener('click', toggleGithubDeleteMode);
+
+    const deleteDockerBtn = safeGet('deleteDockerTokenBtn');
+    if (deleteDockerBtn) deleteDockerBtn.addEventListener('click', toggleDockerDeleteMode);
 
     // ============================================================================
     // 10. 首页搜索功能
@@ -1462,6 +1701,7 @@ export const clientJS = `
 
     await loadData();
     await loadGithubTokens(); // 加载 GitHub 令牌
+    await loadDockerTokens(); // 加载 Docker 令牌
     renderGrid();
     setActiveTab('github');
     if (modeText) modeText.innerText = '存储库';
