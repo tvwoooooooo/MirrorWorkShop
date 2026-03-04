@@ -24,30 +24,15 @@ export const autoMonitorHTML = `
         <input type="number" id="monitorDays" value="1" min="1" max="30"> 天一次
     </div>
 
-    <!-- 令牌管理区域 - 标签页设计 -->
+    <!-- API 令牌配置区域 -->
     <div style="margin-top: 1.5rem; border-top: 1px solid #e2e8f0; padding-top: 1rem;">
-        <div class="tabs" style="margin-bottom: 1rem;">
-            <div class="tab-item active" data-token-tab="github" id="githubTokensTab">GitHub 令牌</div>
-            <div class="tab-item" data-token-tab="docker" id="dockerTokensTab">Docker 令牌</div>
+        <div style="display: flex; gap: 1rem; margin-bottom: 0.5rem;">
+            <button class="btn-icon" id="addGithubTokenBtn" style="background: #24292e; color: white;"><i class="fab fa-github"></i> 添加 GitHub 令牌</button>
+            <button class="btn-icon" id="addDockerTokenBtn" style="background: #2496ed; color: white;"><i class="fab fa-docker"></i> 添加 Docker 令牌</button>
         </div>
-        
-        <!-- GitHub 令牌内容 -->
-        <div id="githubTokensContainer" class="token-container" style="display: block;">
-            <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-bottom: 0.5rem;">
-                <button class="btn-icon" id="addGithubTokenBtn"><i class="fas fa-plus"></i> 添加令牌</button>
-                <button class="btn-icon btn-danger" id="deleteGithubTokenBtn" title="批量删除"><i class="fas fa-trash"></i></button>
-            </div>
-            <div id="githubTokensList" class="buckets-grid" style="min-height: 80px;"></div>
-        </div>
-
-        <!-- Docker 令牌内容（初始隐藏） -->
-        <div id="dockerTokensContainer" class="token-container" style="display: none;">
-            <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-bottom: 0.5rem;">
-                <button class="btn-icon" id="addDockerTokenBtn"><i class="fas fa-plus"></i> 添加令牌</button>
-                <button class="btn-icon btn-danger" id="deleteDockerTokenBtn" title="批量删除"><i class="fas fa-trash"></i></button>
-            </div>
-            <div id="dockerTokensList" class="buckets-grid" style="min-height: 80px;"></div>
-        </div>
+        <!-- 令牌列表将动态渲染 -->
+        <div id="githubTokensList" class="buckets-grid" style="margin-top: 1rem;"></div>
+        <div id="dockerTokensList" class="buckets-grid" style="margin-top: 1rem;"></div>
     </div>
 </div>
 
@@ -74,7 +59,7 @@ export const autoMonitorHTML = `
     </div>
 </div>
 
-<!-- Docker 令牌模态框（预留，暂未实现） -->
+<!-- Docker 令牌模态框（预留，暂未实现功能） -->
 <div class="modal-overlay" id="dockerTokenModal" style="display: none;">
     <div class="modal-content" style="max-width: 450px;">
         <div class="modal-header">
