@@ -1,13 +1,19 @@
 // templates/admin/autoMonitor.js
 export const autoMonitorHTML = `
 <style>
+/* 标签页 + 按钮同行 */
+.token-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 1.5rem;
+    border-bottom: 1px solid #e2e8f0; /* 下划线 */
+}
 .token-tabs {
     display: flex;
     gap: 0.25rem;
     background: transparent;
     padding: 0;
-    margin-top: 1.5rem;
-    border-bottom: 1px solid #e2e8f0; /* 改为1px粗细，与之前移除的横线一致 */
 }
 .token-tab {
     padding: 0.5rem 1.5rem;
@@ -23,7 +29,7 @@ export const autoMonitorHTML = `
     color: #64748b;
     border: 1px solid transparent;
     border-bottom: none;
-    margin-bottom: -1px; /* 适应1px下划线 */
+    margin-bottom: -1px; /* 对齐下划线 */
 }
 .token-tab.active {
     background: white;
@@ -32,19 +38,11 @@ export const autoMonitorHTML = `
     border-bottom-color: white;
     border-radius: 6px 6px 0 0;
 }
-.token-panel {
-    padding: 1rem 0 0 0;
-    background: transparent;
-    border: none;
-    border-radius: 0;
-}
-.panel-header {
+.token-actions {
     display: flex;
-    justify-content: flex-end;
     gap: 0.5rem;
-    margin-bottom: 1rem;
 }
-.panel-header .btn-icon {
+.token-actions .btn-icon {
     background: #f1f5f9;
     border: none;
     border-radius: 40px;
@@ -58,50 +56,63 @@ export const autoMonitorHTML = `
     transition: 0.2s;
     color: #1e293b;
 }
-.panel-header .btn-icon:hover {
+.token-actions .btn-icon:hover {
     background: #e2e8f0;
 }
-.panel-header .btn-danger {
+.token-actions .btn-danger {
     background: #dc2626;
     color: white;
 }
-.panel-header .btn-danger:hover {
+.token-actions .btn-danger:hover {
     background: #b91c1c;
 }
+
+/* 令牌面板（无边框） */
+.token-panel {
+    padding: 1rem 0 0 0;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+}
+
+/* 卡片网格 - 缩小卡片尺寸 */
 .buckets-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 1rem;
-    margin: 1rem 0;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); /* 缩小最小宽度 */
+    gap: 0.75rem;
+    margin: 0.75rem 0;
 }
+
+/* 令牌卡片 - 更紧凑 */
 .bucket-card {
     position: relative;
     background: white;
-    border-radius: 16px;
-    padding: 1rem;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    border-radius: 12px;
+    padding: 0.75rem;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
     border: 1px solid #e2e8f0;
     transition: all 0.2s;
     cursor: pointer;
     overflow: hidden;
+    font-size: 0.9rem;
 }
 .bucket-card:hover {
     border-color: #94a3b8;
-    box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
 }
 .bucket-card.delete-mode .checkbox {
     display: block;
 }
 .bucket-card .checkbox {
     position: absolute;
-    top: 0.5rem;
-    left: 0.5rem;
+    top: 0.35rem;
+    left: 0.35rem;
     z-index: 2;
     display: none;
 }
 .bucket-card .checkbox input {
-    width: 18px;
-    height: 18px;
+    width: 14px;
+    height: 14px;
     cursor: pointer;
 }
 .bucket-card.bucket-card-selected {
@@ -112,12 +123,19 @@ export const autoMonitorHTML = `
     position: relative;
     z-index: 1;
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column;  /* 改为纵向排列，适应小卡片 */
+    align-items: flex-start;
+    gap: 0.25rem;
 }
 .bucket-name {
     font-weight: 600;
-    font-size: 1rem;
+    font-size: 0.9rem;
+    max-width: 100%;
+    word-break: break-word;
+}
+.usage-count {
+    font-size: 0.75rem;
+    color: #64748b;
 }
 </style>
 
@@ -145,29 +163,31 @@ export const autoMonitorHTML = `
         <input type="number" id="monitorDays" value="1" min="1" max="30"> 天一次
     </div>
 
-    <!-- API 令牌配置区域，移除横线，仅保留上边距 -->
+    <!-- API 令牌配置区域（标签页 + 按钮同行） -->
     <div style="margin-top: 1.5rem;">
-        <!-- 标签页 -->
-        <div class="token-tabs" id="tokenTabs">
-            <div class="token-tab active" data-token-type="github"><i class="fab fa-github"></i> Github令牌</div>
-            <div class="token-tab" data-token-type="docker"><i class="fab fa-docker"></i> Docker令牌</div>
+        <!-- 标签页和按钮放在同一行 -->
+        <div class="token-header">
+            <div class="token-tabs" id="tokenTabs">
+                <div class="token-tab active" data-token-type="github"><i class="fab fa-github"></i> Github令牌</div>
+                <div class="token-tab" data-token-type="docker"><i class="fab fa-docker"></i> Docker令牌</div>
+            </div>
+            <div class="token-actions" id="githubTokenActions">
+                <button class="btn-icon" id="addGithubTokenBtn"><i class="fas fa-plus"></i> +添加令牌</button>
+                <button class="btn-icon btn-danger" id="deleteGithubTokenBtn" title="批量删除"><i class="fas fa-trash"></i></button>
+            </div>
+            <div class="token-actions hide" id="dockerTokenActions">
+                <button class="btn-icon" id="addDockerTokenBtn"><i class="fas fa-plus"></i> +添加令牌</button>
+                <button class="btn-icon btn-danger" id="deleteDockerTokenBtn" title="批量删除"><i class="fas fa-trash"></i></button>
+            </div>
         </div>
 
         <!-- GitHub 令牌面板 -->
         <div class="token-panel" id="githubTokenPanel">
-            <div class="panel-header">
-                <button class="btn-icon" id="addGithubTokenBtn"><i class="fas fa-plus"></i> +添加令牌</button>
-                <button class="btn-icon btn-danger" id="deleteGithubTokenBtn" title="批量删除"><i class="fas fa-trash"></i></button>
-            </div>
             <div id="githubTokensList" class="buckets-grid"></div>
         </div>
 
-        <!-- Docker 令牌面板 -->
+        <!-- Docker 令牌面板（默认隐藏） -->
         <div class="token-panel hide" id="dockerTokenPanel">
-            <div class="panel-header">
-                <button class="btn-icon" id="addDockerTokenBtn"><i class="fas fa-plus"></i> +添加令牌</button>
-                <button class="btn-icon btn-danger" id="deleteDockerTokenBtn" title="批量删除"><i class="fas fa-trash"></i></button>
-            </div>
             <div id="dockerTokensList" class="buckets-grid"></div>
         </div>
     </div>
