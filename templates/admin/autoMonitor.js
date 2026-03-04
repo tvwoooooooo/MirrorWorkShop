@@ -76,15 +76,15 @@ export const autoMonitorHTML = `
 /* 卡片缩小 */
 .buckets-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); /* 缩小最小宽度 */
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
     gap: 0.75rem;
     margin: 0.75rem 0;
 }
 .bucket-card {
     position: relative;
     background: white;
-    border-radius: 12px; /* 稍微减小圆角 */
-    padding: 0.75rem;    /* 减小内边距 */
+    border-radius: 12px;
+    padding: 0.75rem;
     box-shadow: 0 2px 8px rgba(0,0,0,0.05);
     border: 1px solid #e2e8f0;
     transition: all 0.2s;
@@ -108,7 +108,7 @@ export const autoMonitorHTML = `
 }
 .bucket-name {
     font-weight: 600;
-    font-size: 0.95rem; /* 减小字体 */
+    font-size: 0.95rem;
 }
 .bucket-usage {
     font-size: 0.8rem;
@@ -149,11 +149,11 @@ export const autoMonitorHTML = `
                 <div class="token-tab" data-token-type="docker"><i class="fab fa-docker"></i> Docker令牌</div>
             </div>
             <div class="token-actions" id="githubActions">
-                <button class="btn-icon" id="addGithubTokenBtn"><i class="fas fa-plus"></i> +添加令牌</button>
+                <button class="btn-icon" id="addGithubTokenBtn"><i class="fas fa-plus"></i> 添加令牌</button>
                 <button class="btn-icon btn-danger" id="deleteGithubTokenBtn" title="批量删除"><i class="fas fa-trash"></i></button>
             </div>
             <div class="token-actions hide" id="dockerActions">
-                <button class="btn-icon" id="addDockerTokenBtn"><i class="fas fa-plus"></i> +添加令牌</button>
+                <button class="btn-icon" id="addDockerTokenBtn"><i class="fas fa-plus"></i> 添加令牌</button>
                 <button class="btn-icon btn-danger" id="deleteDockerTokenBtn" title="批量删除"><i class="fas fa-trash"></i></button>
             </div>
         </div>
