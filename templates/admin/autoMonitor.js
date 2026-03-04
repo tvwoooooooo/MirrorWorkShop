@@ -1,5 +1,123 @@
 // templates/admin/autoMonitor.js
 export const autoMonitorHTML = `
+<style>
+.token-tabs {
+    display: flex;
+    gap: 0.25rem;
+    background: #e9eef2;
+    padding: 0.25rem 0.25rem 0 0.25rem;
+    border-radius: 8px 8px 0 0;
+    width: fit-content;
+    margin-top: 1.5rem;
+}
+.token-tab {
+    padding: 0.5rem 1.5rem;
+    border-radius: 6px 6px 0 0;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.2s;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    background: #d1d9e0;
+    color: #334155;
+}
+.token-tab.active {
+    background: white;
+    color: #0f172a;
+    box-shadow: 0 -2px 4px rgba(0,0,0,0.02);
+}
+.token-panel {
+    border: 1px solid #e2e8f0;
+    border-top: none;
+    background: white;
+    border-radius: 0 8px 8px 8px;
+    padding: 1rem;
+}
+.panel-header {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+.panel-header .btn-icon {
+    background: #f1f5f9;
+    border: none;
+    border-radius: 40px;
+    padding: 0.4rem 1rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    cursor: pointer;
+    transition: 0.2s;
+    color: #1e293b;
+}
+.panel-header .btn-icon:hover {
+    background: #e2e8f0;
+}
+.panel-header .btn-danger {
+    background: #dc2626;
+    color: white;
+}
+.panel-header .btn-danger:hover {
+    background: #b91c1c;
+}
+.buckets-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+    margin: 1rem 0;
+}
+.bucket-card {
+    position: relative;
+    background: white;
+    border-radius: 16px;
+    padding: 1rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    border: 1px solid #e2e8f0;
+    transition: all 0.2s;
+    cursor: pointer;
+    overflow: hidden;
+}
+.bucket-card:hover {
+    border-color: #94a3b8;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+}
+.bucket-card.delete-mode .checkbox {
+    display: block;
+}
+.bucket-card .checkbox {
+    position: absolute;
+    top: 0.5rem;
+    left: 0.5rem;
+    z-index: 2;
+    display: none;
+}
+.bucket-card .checkbox input {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+.bucket-card.bucket-card-selected {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+.bucket-content {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.bucket-name {
+    font-weight: 600;
+    font-size: 1rem;
+}
+</style>
+
 <div class="card">
     <div class="card-header">
         <h2>自动监控</h2>
@@ -24,15 +142,31 @@ export const autoMonitorHTML = `
         <input type="number" id="monitorDays" value="1" min="1" max="30"> 天一次
     </div>
 
-    <!-- API 令牌配置区域 -->
+    <!-- API 令牌配置区域（标签页） -->
     <div style="margin-top: 1.5rem; border-top: 1px solid #e2e8f0; padding-top: 1rem;">
-        <div style="display: flex; gap: 1rem; margin-bottom: 0.5rem;">
-            <button class="btn-icon" id="addGithubTokenBtn" style="background: #24292e; color: white;"><i class="fab fa-github"></i> 添加 GitHub 令牌</button>
-            <button class="btn-icon" id="addDockerTokenBtn" style="background: #2496ed; color: white;"><i class="fab fa-docker"></i> 添加 Docker 令牌</button>
+        <!-- 标签页 -->
+        <div class="token-tabs" id="tokenTabs">
+            <div class="token-tab active" data-token-type="github"><i class="fab fa-github"></i> Github令牌</div>
+            <div class="token-tab" data-token-type="docker"><i class="fab fa-docker"></i> Docker令牌</div>
         </div>
-        <!-- 令牌列表将动态渲染 -->
-        <div id="githubTokensList" class="buckets-grid" style="margin-top: 1rem;"></div>
-        <div id="dockerTokensList" class="buckets-grid" style="margin-top: 1rem;"></div>
+
+        <!-- GitHub 令牌面板 -->
+        <div class="token-panel" id="githubTokenPanel">
+            <div class="panel-header">
+                <button class="btn-icon" id="addGithubTokenBtn"><i class="fas fa-plus"></i> +添加令牌</button>
+                <button class="btn-icon btn-danger" id="deleteGithubTokenBtn" title="批量删除"><i class="fas fa-trash"></i></button>
+            </div>
+            <div id="githubTokensList" class="buckets-grid"></div>
+        </div>
+
+        <!-- Docker 令牌面板（默认隐藏） -->
+        <div class="token-panel hide" id="dockerTokenPanel">
+            <div class="panel-header">
+                <button class="btn-icon" id="addDockerTokenBtn"><i class="fas fa-plus"></i> +添加令牌</button>
+                <button class="btn-icon btn-danger" id="deleteDockerTokenBtn" title="批量删除"><i class="fas fa-trash"></i></button>
+            </div>
+            <div id="dockerTokensList" class="buckets-grid"></div>
+        </div>
     </div>
 </div>
 
@@ -59,7 +193,7 @@ export const autoMonitorHTML = `
     </div>
 </div>
 
-<!-- Docker 令牌模态框（预留，暂未实现功能） -->
+<!-- Docker 令牌模态框 -->
 <div class="modal-overlay" id="dockerTokenModal" style="display: none;">
     <div class="modal-content" style="max-width: 450px;">
         <div class="modal-header">
