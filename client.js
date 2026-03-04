@@ -948,7 +948,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 11. 队列信息显示（轮询间隔60秒，仅显示状态，不显示进度）
+    // 11. 队列信息显示（仅显示任务状态，无进度）
     // ============================================================================
 
     const queueMenuBtn = safeGet('queueMenuBtn');
@@ -974,7 +974,7 @@ export const clientJS = `
                     const first = tasks[0];
                     queueFileCount.style.display = 'none';
                     queueFileName.style.display = 'inline';
-                    queueFileName.innerText = `正在上传: ${first.name}`;
+                    queueFileName.innerText = \`正在上传: \${first.name}\`;
                 }
             }
 
@@ -983,12 +983,12 @@ export const clientJS = `
                 if (tasks.length === 0) {
                     queueTaskList.innerHTML = '<div class="empty-state">暂无活动任务</div>';
                 } else {
-                    queueTaskList.innerHTML = tasks.map(task => `
+                    queueTaskList.innerHTML = tasks.map(task => \`
                         <div class="queue-task-item">
-                            <span class="task-name">${task.name}</span>
-                            <span class="task-status">${task.status === 'processing' ? '正在上传' : '等待中'}</span>
+                            <span class="task-name">\${task.name}</span>
+                            <span class="task-status">\${task.status === 'processing' ? '正在上传' : '等待中'}</span>
                         </div>
-                    `).join('');
+                    \`).join('');
                 }
             }
         } catch (e) {
@@ -1001,7 +1001,7 @@ export const clientJS = `
     function startQueueInfoPolling() {
         if (queueInfoInterval) clearInterval(queueInfoInterval);
         updateQueueInfo();
-        queueInfoInterval = setInterval(updateQueueInfo, 60000);
+        queueInfoInterval = setInterval(updateQueueInfo, 60000); // 60秒轮询一次
     }
 
     function stopQueueInfoPolling() {
@@ -1257,8 +1257,8 @@ export const clientJS = `
                 clearInterval(interval);
                 alert(\`备份失败: \${task.error}\`);
             } else if (task.status === 'processing' || task.status === 'queued') {
-                const progress = task.completedBatches ? \`\${task.completedBatches.length}/\${task.totalBatches}\` : '0/?';
-                console.log(\`任务处理中... 批次进度: \${progress}\`);
+                // 不再显示进度，仅 console 保留（可选）
+                console.log(\`任务处理中...\`);
             }
         }, 3000);
     }
