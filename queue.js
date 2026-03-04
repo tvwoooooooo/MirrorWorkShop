@@ -10,12 +10,12 @@ export async function queueHandler(batch, env, ctx) {
     if (task.type === 'master') {
       try {
         const { taskId, owner, repo, bucketId } = task;
-        const filePaths = await getRepoFileTree(owner, repo);
+        // 传入 env
+        const filePaths = await getRepoFileTree(owner, repo, env);
         await createMasterTask(env, taskId, owner, repo, bucketId, filePaths);
         message.ack();
       } catch (error) {
         console.error('Master task failed:', error);
-        // 保存详细错误信息到任务中
         await env.B2_KV.put(`master:${task.taskId}`, JSON.stringify({
           status: 'failed',
           owner: task.owner,
