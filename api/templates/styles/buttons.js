@@ -107,15 +107,13 @@ export const buttons = `
     background: #f1f5f9;
     border: 1px solid #cbd5e1;
     border-radius: 40px;
-    width: 36px;
-    height: 36px;
+    padding: 0.5rem 1.2rem;
+    font-weight: 500;
+    cursor: pointer;
     display: flex;
     align-items: center;
-    justify-content: center;
-    cursor: pointer;
+    gap: 0.5rem;
     transition: 0.2s;
-    color: #1e293b;
-    font-size: 1rem;
 }
 
 .back-home-btn:hover {

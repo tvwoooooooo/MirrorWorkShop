@@ -53,7 +53,6 @@ export async function processBatch(batchTask, env) {
 
   for (const filePath of files) {
     try {
-      // 更新当前正在处理的文件
       await updateMasterTaskProgress(env, masterTaskId, {
         currentFile: filePath
       });
@@ -67,10 +66,9 @@ export async function processBatch(batchTask, env) {
       let body, length;
       const contentLength = rawRes.headers.get('content-length');
       if (contentLength) {
-        body = rawRes.body; // 流式
+        body = rawRes.body;
         length = parseInt(contentLength, 10);
       } else {
-        // 如果缺少 content-length，则读取整个文件到 buffer
         const buffer = await rawRes.arrayBuffer();
         body = buffer;
         length = buffer.byteLength;
@@ -80,7 +78,6 @@ export async function processBatch(batchTask, env) {
       await uploadFile(client, bucket, b2Path, body, length);
       successCount++;
 
-      // 每上传一个文件就更新一次进度
       await updateMasterTaskProgress(env, masterTaskId, {
         processedFiles: (await getCurrentProcessed(env, masterTaskId)) + 1
       });
@@ -91,7 +88,6 @@ export async function processBatch(batchTask, env) {
     }
   }
 
-  // 更新批次完成状态
   const masterKey = `master:${masterTaskId}`;
   const master = await env.B2_KV.get(masterKey, 'json') || {};
   const completedBatches = master.completedBatches || [];
@@ -108,14 +104,12 @@ export async function processBatch(batchTask, env) {
     currentFile: null
   });
 
-  // 检查是否所有批次完成
   const updatedMaster = await env.B2_KV.get(masterKey, 'json');
   if (updatedMaster && updatedMaster.completedBatches.length === updatedMaster.totalBatches) {
     await completeMasterTask(env, masterTaskId, 'completed');
   }
 }
 
-// 辅助函数：获取当前已处理文件数
 async function getCurrentProcessed(env, masterTaskId) {
   const master = await env.B2_KV.get(`master:${masterTaskId}`, 'json') || {};
   return master.processedFiles || 0;

@@ -293,6 +293,7 @@ export const admin = `
     border-radius: 40px;
 }
 
+/* 后台搜索结果区域 - 滚动容器 */
 .search-result-area {
     margin-top: 1.5rem;
     border-top: 1px solid #e2e8f0;

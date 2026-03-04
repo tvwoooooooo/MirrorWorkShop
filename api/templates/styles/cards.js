@@ -1,4 +1,250 @@
-// templates/styles/cards.js 中的桶卡片和队列面板样式（已是最新）
+// templates/styles/cards.js
+export const cards = `
+/* 官网搜索结果卡片 */
+.official-result-card {
+    background: #fef9e7;
+    border: 1px solid #fde68a;
+    border-radius: 24px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 8px 20px rgba(251, 191, 36, 0.1);
+}
+
+.official-badge {
+    background: #fbbf24;
+    color: #0f172a;
+    font-size: 0.8rem;
+    font-weight: 700;
+    padding: 0.2rem 0.9rem;
+    border-radius: 30px;
+    letter-spacing: 0.3px;
+    display: inline-block;
+    margin-bottom: 0.6rem;
+}
+
+.official-results-list {
+    max-height: 400px;
+    overflow-y: auto;
+    padding-right: 0.5rem;
+    position: relative;
+}
+
+.official-result-item {
+    position: relative;
+    overflow: hidden;
+    background: #fef9e7;
+    border-radius: 20px;
+    padding: 1rem 1.2rem;
+    margin-bottom: 0.8rem;
+    border: 1px solid #fde68a;
+    transition: 0.2s;
+}
+
+.official-result-item:hover {
+    border-color: #fbbf24;
+    box-shadow: 0 4px 12px rgba(251, 191, 36, 0.2);
+}
+
+.official-result-item .card-bg-icon {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    font-size: 6rem;
+    opacity: 0.08;
+    z-index: 0;
+    pointer-events: none;
+    color: #1e293b;
+    transform: rotate(-5deg);
+}
+
+.official-item-header {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    margin-bottom: 0.3rem;
+    position: relative;
+    z-index: 1;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.official-item-name {
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: #1e293b;
+    text-decoration: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 40%;
+    flex-shrink: 1;
+}
+
+.official-item-name:hover {
+    text-decoration: underline;
+    color: #2563eb;
+}
+
+.official-item-stats {
+    display: flex;
+    gap: 0.8rem;
+    color: #475569;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+    margin-left: 0;
+}
+
+.official-item-lastupdate {
+    color: #64748b;
+    font-size: 0.8rem;
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+.official-item-description {
+    color: #475569;
+    font-size: 0.9rem;
+    margin: 0.3rem 0 0.5rem 0;
+    position: relative;
+    z-index: 1;
+}
+
+.official-item-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-top: 0.5rem;
+    position: relative;
+    z-index: 1;
+}
+
+/* 项目卡片（存储库） */
+.projects-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1.5rem;
+}
+
+.project-card {
+    position: relative;
+    overflow: hidden;
+    background: white;
+    border-radius: 24px;
+    padding: 1.3rem 1.5rem 1.5rem 1.5rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+    border: 1px solid #e2e8f0;
+    transition: all 0.2s;
+}
+
+.project-card:hover {
+    border-color: #94a3b8;
+    box-shadow: 0 12px 24px -8px rgba(0,0,0,0.1);
+}
+
+.card-bg-icon {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    font-size: 8rem;
+    opacity: 0.08;
+    z-index: 0;
+    pointer-events: none;
+    color: #1e293b;
+    transform: rotate(-5deg);
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+    position: relative;
+    z-index: 1;
+}
+
+.project-name {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #1e293b;
+    text-decoration: none;
+    cursor: pointer;
+    z-index: 2;
+}
+
+.project-name:hover {
+    text-decoration: underline;
+    color: #2563eb;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    z-index: 2;
+}
+
+.official-link-btn {
+    background: #eef2ff;
+    border: none;
+    border-radius: 30px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #1e4f8a;
+    cursor: pointer;
+    transition: 0.2s;
+    font-size: 1rem;
+    text-decoration: none;
+}
+
+.official-link-btn:hover {
+    background: #dbeafe;
+    transform: scale(1.05);
+}
+
+.project-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.8rem 1.2rem;
+    font-size: 0.85rem;
+    color: #475569;
+    margin: 1rem 0 1.2rem 0;
+    border-top: 1px dashed #e2e8f0;
+    padding-top: 0.8rem;
+    position: relative;
+    z-index: 1;
+}
+
+.meta-item {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.meta-item i {
+    width: 16px;
+    color: #64748b;
+}
+
+.action-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    position: relative;
+    z-index: 1;
+}
+
+.releases-group {
+    display: flex;
+    gap: 0.3rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
 /* 桶卡片 */
 .buckets-grid {
     display: grid;
@@ -110,6 +356,25 @@
     cursor: pointer;
 }
 
+/* Snippets 文本域 */
+#snippetsJson {
+    width: 100%;
+    height: 150px;
+    font-family: monospace;
+    font-size: 0.9rem;
+    padding: 0.5rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    resize: vertical;
+    background: #f8fafc;
+}
+
+#snippetsJson:focus {
+    outline: none;
+    border-color: #94a3b8;
+    box-shadow: 0 0 0 2px #e2e8f0;
+}
+
 /* 队列详情面板 */
 .queue-detail-panel {
     position: absolute;
@@ -150,3 +415,4 @@
 .queue-task-item .task-progress {
     color: #64748b;
 }
+`;

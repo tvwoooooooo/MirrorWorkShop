@@ -12,6 +12,7 @@ export const s3ConfigHTML = `
         <!-- 桶卡片将动态渲染 -->
     </div>
     
+    <!-- Snippets 规则区域 -->
     <div style="margin-top: 1.5rem; border-top: 1px solid #e2e8f0; padding-top: 1rem;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
             <strong>Snippets 规则 (桶标识映射)</strong>
@@ -33,6 +34,7 @@ export const s3ConfigHTML = `
     </div>
 </div>
 
+<!-- 添加/编辑桶的模态框 -->
 <div class="modal-overlay" id="bucketModal" style="display: none;">
     <div class="modal-content" style="max-width: 500px;">
         <div class="modal-header">
@@ -43,6 +45,7 @@ export const s3ConfigHTML = `
             <div class="input-group">
                 <label>自定义桶名 <span style="color:#ef4444;">*</span></label>
                 <input type="text" id="bucketCustomName" placeholder="例如: 我的默认桶" required>
+                <!-- 内部ID静态文本紧贴输入框下方 -->
                 <div style="margin-top: 0.1rem; color: #64748b; font-size: 0.85rem;">
                     <span>桶内部ID(内部引用): </span>
                     <span id="displayInternalId" style="font-family: monospace; background: #f1f5f9; padding: 0.1rem 0.3rem; border-radius: 4px;"></span>
@@ -66,6 +69,7 @@ export const s3ConfigHTML = `
                 <label>端点 (Endpoint) <span style="color:#ef4444;">*</span></label>
                 <input type="text" id="bucketEndpoint" placeholder="例如: s3.ca-east-006.backblazeb2.com" required>
             </div>
+            <!-- 桶标识（可选） -->
             <div class="input-group">
                 <label>桶标识 (可选，用于Snippets)</label>
                 <input type="text" id="bucketSnippetId" placeholder="例如: default">

@@ -12,6 +12,7 @@ export const addProjectHTML = `
                 <i class="fas fa-bars"></i>
             </div>
         </div>
+        <!-- 队列详情面板移到此处作为绝对定位子元素 -->
         <div id="queueDetailPanel" class="queue-detail-panel hide">
             <h4>队列任务</h4>
             <div id="queueTaskList"></div>
@@ -34,6 +35,7 @@ export const addProjectHTML = `
     <p style="color:#64748b; margin-top:0.5rem;">搜索后将项目完整备份到存储桶</p>
 </div>
 
+<!-- 选择存储桶模态框（卡片样式） -->
 <div class="modal-overlay" id="selectBucketModal" style="display: none;">
     <div class="modal-content" style="max-width: 500px;">
         <div class="modal-header">

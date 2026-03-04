@@ -1,10 +1,7 @@
 // templates/admin/autoMonitor.js
 export const autoMonitorHTML = `
 <div class="card">
-    <div class="card-header">
-        <h2>自动监控</h2>
-        <button class="btn-icon" id="saveMonitorBtn"><i class="fas fa-save"></i> 保存</button>
-    </div>
+    <div class="card-header"><h2>自动监控</h2></div>
     <div class="monitor-row">
         <div class="toggle-switch">
             <span>监控开关</span>
