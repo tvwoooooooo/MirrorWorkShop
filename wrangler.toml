@@ -15,8 +15,6 @@ max_batch_size = 1
 max_retries = 3
 max_concurrency = 1
 
-# D1 数据库绑定
 [[d1_databases]]
-binding = "DB"               # 在 Worker 中通过 env.DB 访问
+binding = "DB"
 database_name = "b2-mirror-db"
-database_id = "your-database-id"  # 替换为实际 ID
