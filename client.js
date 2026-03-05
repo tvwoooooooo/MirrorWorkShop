@@ -30,7 +30,7 @@ export const clientJS = `
 
     // 队列信息相关
     let queueInfoInterval = null;
-    let currentProjectToBackup = null;
+    let currentProjectToBackup = null; // 存储当前要备份的完整项目对象
 
     // 令牌管理相关
     let githubTokens = [];
@@ -41,7 +41,6 @@ export const clientJS = `
     let dockerSelectedTokens = new Set();
 
     // 备份选项相关
-    let currentProjectReleases = null;
     let selectedReleases = new Map(); // key: projectType:projectName, value: array of { tag, assetName }
 
     // ============================================================================
@@ -61,7 +60,7 @@ export const clientJS = `
             buckets = await bucketsRes.json();
             config = await configRes.json();
 
-            // 为每个桶添加模拟使用量（实际应从B2获取）
+            // 为每个桶添加模拟使用量
             buckets = buckets.map(b => ({
                 ...b,
                 usage: b.usage !== undefined ? b.usage : Math.random() * 10,
@@ -119,7 +118,7 @@ export const clientJS = `
     setLoggedIn(false);
 
     // ============================================================================
-    // 5. 桶卡片渲染
+    // 5. 桶卡片渲染（保持不变）
     // ============================================================================
 
     function renderBucketsCards() {
@@ -183,7 +182,7 @@ export const clientJS = `
             });
         });
 
-        // 更新Snippets JSON显示（使用 snippetId）
+        // 更新Snippets JSON显示
         if (snippetsJson) {
             const validBuckets = buckets.filter(b => b.snippetId && b.snippetId.trim() !== '');
             const snippets = validBuckets.reduce((acc, b) => {
@@ -1097,6 +1096,10 @@ export const clientJS = `
     const closeSelectBucketModal = safeGet('closeSelectBucketModal');
     const bucketCardGrid = safeGet('bucketCardGrid');
     const confirmSelectBucketBtn = safeGet('confirmSelectBucketBtn');
+    const modalProjectName = safeGet('modalProjectName');
+    const backupCodeCheckbox = safeGet('backupCodeCheckbox');
+    const modalSelectReleasesBtn = safeGet('modalSelectReleasesBtn');
+    const selectedReleasesInfo = safeGet('selectedReleasesInfo');
 
     let addMode = 'GitHub';
     if (addModeToggle) {
@@ -1132,55 +1135,34 @@ export const clientJS = `
 
             newItems.forEach(item => {
                 const isGitHub = item.type === 'github';
-                const projectKey = \`\${item.type}:\${item.name}\`;
-                const hasSelectedReleases = selectedReleases.has(projectKey) && selectedReleases.get(projectKey).length > 0;
-                const releasesBtnClass = hasSelectedReleases ? 'releases-select-btn active' : 'releases-select-btn';
-                const releasesBtnText = hasSelectedReleases ? \`已选 \${selectedReleases.get(projectKey).length} 个\` : '选择Releases';
-                
                 const itemHtml = \`
-                    <div class="search-result-item" data-project='\${JSON.stringify(item)}'>
-                        <div class="search-result-header">
-                            <span style="display: flex; align-items: center; gap: 0.5rem;">
-                                <i class="\${isGitHub ? 'fab fa-github' : 'fab fa-docker'}"></i>
-                                <strong>\${item.name}</strong>
-                                <span style="color:#64748b; font-size:0.8rem;">
-                                    <i class="\${isGitHub ? 'fas fa-code-branch' : 'fas fa-download'}"></i> \${isGitHub ? item.forks : item.pulls}
-                                    <i class="far fa-star"></i> \${item.stars}
-                                </span>
+                    <div class="search-result-item">
+                        <span>
+                            <i class="\${isGitHub ? 'fab fa-github' : 'fab fa-docker'}"></i>
+                            <strong>\${item.name}</strong>
+                            <span style="color:#64748b; font-size:0.8rem;">
+                                <i class="\${isGitHub ? 'fas fa-code-branch' : 'fas fa-download'}"></i> \${isGitHub ? item.forks : item.pulls}
+                                <i class="far fa-star"></i> \${item.stars}
                             </span>
-                            <button class="save-btn backup-btn" data-name="\${item.name}" data-type="\${item.type}">完整备份</button>
-                        </div>
-                        <div class="search-result-options">
-                            <label class="checkbox-item">
-                                <input type="checkbox" class="backup-code-checkbox" checked> 备份代码文件
-                            </label>
-                            \${item.has_releases ? \`
-                                <button class="\${releasesBtnClass}" data-project='\${JSON.stringify(item)}'>
-                                    <i class="fas fa-tag"></i> \${releasesBtnText}
-                                </button>
-                            \` : ''}
-                        </div>
+                        </span>
+                        <button class="save-btn backup-btn" data-project='\${JSON.stringify(item).replace(/'/g, "&apos;")}'>完整备份</button>
                     </div>
                 \`;
                 if (searchResultList) searchResultList.insertAdjacentHTML('beforeend', itemHtml);
             });
 
-            // 绑定 Releases 选择按钮事件
-            document.querySelectorAll('.releases-select-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const project = JSON.parse(btn.dataset.project);
-                    openReleasesSelectPopup(project);
-                });
-            });
-
             // 绑定完整备份按钮事件
             document.querySelectorAll('.backup-btn').forEach(btn => {
                 btn.addEventListener('click', (e) => {
-                    const name = e.target.dataset.name;
-                    const type = e.target.dataset.type;
-                    currentProjectToBackup = { name, type };
-                    openSelectBucketModal();
+                    const projectStr = e.target.dataset.project;
+                    if (!projectStr) return;
+                    try {
+                        const project = JSON.parse(projectStr.replace(/&apos;/g, "'"));
+                        currentProjectToBackup = project;
+                        openSelectBucketModal();
+                    } catch (err) {
+                        console.error('解析项目数据失败', err);
+                    }
                 });
             });
 
@@ -1227,10 +1209,16 @@ export const clientJS = `
         });
     }
 
-    // 桶选择模态框（卡片样式）
+    // 打开桶选择模态框（带备份选项）
     function openSelectBucketModal() {
-        if (!bucketCardGrid || !selectBucketModal) return;
+        if (!bucketCardGrid || !selectBucketModal || !currentProjectToBackup) return;
         
+        // 显示项目名称
+        if (modalProjectName) {
+            modalProjectName.innerText = \`项目：\${currentProjectToBackup.name}\`;
+        }
+        
+        // 渲染桶卡片
         if (buckets.length === 0) {
             bucketCardGrid.innerHTML = '<div class="empty-state">暂无桶配置，请先添加</div>';
         } else {
@@ -1261,12 +1249,40 @@ export const clientJS = `
                 });
             });
         }
+
+        // 重置备份选项显示
+        if (backupCodeCheckbox) backupCodeCheckbox.checked = true;
+        updateSelectedReleasesInfo();
+
         selectBucketModal.style.display = 'flex';
     }
 
+    // 更新已选 Releases 信息
+    function updateSelectedReleasesInfo() {
+        if (!currentProjectToBackup || !selectedReleasesInfo) return;
+        const projectKey = \`\${currentProjectToBackup.type}:\${currentProjectToBackup.name}\`;
+        const selected = selectedReleases.get(projectKey) || [];
+        if (selected.length === 0) {
+            selectedReleasesInfo.innerText = '未选择任何 Releases 资产';
+        } else {
+            selectedReleasesInfo.innerText = \`已选择 \${selected.length} 个 Releases 资产\`;
+        }
+        // 更新按钮样式
+        if (modalSelectReleasesBtn) {
+            if (selected.length > 0) {
+                modalSelectReleasesBtn.classList.add('active');
+                modalSelectReleasesBtn.innerHTML = \`<i class="fas fa-tag"></i> 已选 \${selected.length} 个\`;
+            } else {
+                modalSelectReleasesBtn.classList.remove('active');
+                modalSelectReleasesBtn.innerHTML = \`<i class="fas fa-tag"></i> 选择Releases\`;
+            }
+        }
+    }
+
+    // 关闭模态框
     if (closeSelectBucketModal) {
         closeSelectBucketModal.addEventListener('click', () => {
-            if (selectBucketModal) selectBucketModal.style.display = 'none';
+            selectBucketModal.style.display = 'none';
         });
     }
     if (selectBucketModal) {
@@ -1275,6 +1291,16 @@ export const clientJS = `
         });
     }
 
+    // 点击选择 Releases 按钮
+    if (modalSelectReleasesBtn) {
+        modalSelectReleasesBtn.addEventListener('click', () => {
+            if (currentProjectToBackup) {
+                openReleasesSelectPopup(currentProjectToBackup);
+            }
+        });
+    }
+
+    // 确认备份
     if (confirmSelectBucketBtn) {
         confirmSelectBucketBtn.addEventListener('click', async () => {
             const selectedCard = document.querySelector('.selectable-card.bucket-card-selected');
@@ -1289,15 +1315,7 @@ export const clientJS = `
                 return;
             }
             
-            // 获取该项目的备份选项
-            const projectDiv = document.querySelector(\`.search-result-item[data-project='\${JSON.stringify(project).replace(/'/g, "&apos;")}']\`);
-            if (!projectDiv) {
-                alert('找不到项目元素');
-                return;
-            }
-            const backupCodeCheckbox = projectDiv.querySelector('.backup-code-checkbox');
             const backupCode = backupCodeCheckbox ? backupCodeCheckbox.checked : true;
-            
             const projectKey = \`\${project.type}:\${project.name}\`;
             const selectedReleaseAssets = selectedReleases.get(projectKey) || [];
             
@@ -1329,7 +1347,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 12. Releases 选择悬浮窗
+    // 12. Releases 选择悬浮窗（基本不变，但需要与模态框联动）
     // ============================================================================
 
     async function openReleasesSelectPopup(project) {
@@ -1460,17 +1478,8 @@ export const clientJS = `
             });
             selectedReleases.set(projectKey, selected);
             
-            // 更新对应项目的按钮样式
-            const btn = document.querySelector(\`.releases-select-btn[data-project='\${JSON.stringify(currentProjectReleases).replace(/'/g, "&apos;")}']\`);
-            if (btn) {
-                if (selected.length > 0) {
-                    btn.classList.add('active');
-                    btn.innerHTML = \`<i class="fas fa-tag"></i> 已选 \${selected.length} 个\`;
-                } else {
-                    btn.classList.remove('active');
-                    btn.innerHTML = \`<i class="fas fa-tag"></i> 选择Releases\`;
-                }
-            }
+            // 更新桶选择模态框中的显示
+            updateSelectedReleasesInfo();
         }
         popup.style.display = 'none';
         currentProjectReleases = null;
@@ -1494,7 +1503,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 13. 队列信息显示
+    // 13. 队列信息显示（保持不变）
     // ============================================================================
 
     const queueMenuBtn = safeGet('queueMenuBtn');
@@ -1781,7 +1790,7 @@ export const clientJS = `
     tabs.forEach(tab => tab.addEventListener('click', () => setActiveTab(tab.dataset.tab)));
 
     // ============================================================================
-    // 17. 任务轮询
+    // 17. 任务轮询（保持不变）
     // ============================================================================
 
     function pollTaskStatus(taskId) {
