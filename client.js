@@ -877,7 +877,7 @@ export const clientJS = `
     if (deleteDockerBtn) deleteDockerBtn.addEventListener('click', toggleDockerDeleteMode);
 
     // ============================================================================
-    // 10. 首页搜索功能（保持不变）
+    // 10. 首页搜索功能
     // ============================================================================
 
     const modeToggleBtn = safeGet('modeToggleBtn');
@@ -1084,7 +1084,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 11. 后台项目添加搜索（保持不变）
+    // 11. 后台项目添加搜索
     // ============================================================================
 
     const addModeToggle = safeGet('addModeToggle');
@@ -1203,12 +1203,77 @@ export const clientJS = `
         });
     }
 
-    // 桶选择模态框（卡片样式）
+    // ============================================================================
+    // 12. 桶选择模态框（增强版）
+    // ============================================================================
+
+    // 打开选择桶模态框（增强版）
     function openSelectBucketModal() {
-        if (!bucketCardGrid || !selectBucketModal) return;
+        if (!selectBucketModal) return;
         
+        const project = currentProjectToBackup;
+        if (!project) return;
+
+        // 清空模态框内容，重新构建
+        const modalContent = document.querySelector('#selectBucketModal .modal-content');
+        if (!modalContent) return;
+
+        // 设置标题
+        const header = modalContent.querySelector('.modal-header h3');
+        if (header) header.innerText = '备份选项';
+
+        // 构建内部HTML
+        let html = \`
+            <div style="margin-bottom: 1.5rem;">
+                <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+                    <label style="display: flex; align-items: center; gap: 0.3rem;">
+                        <input type="checkbox" id="backupFilesCheckbox" checked> 备份代码文件
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 0.3rem;">
+                        <input type="checkbox" id="backupReleasesCheckbox"> 备份Releases
+                    </label>
+                </div>
+                <div id="releasesSection" style="display: none; border-top: 1px solid #e2e8f0; padding-top: 1rem;">
+                    <h4 style="margin-bottom: 0.5rem;">选择要备份的Releases版本：</h4>
+                    <div id="releasesList" style="max-height: 200px; overflow-y: auto; margin-bottom: 1rem;"></div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <span>共 <span id="releaseCount">0</span> 个版本</span>
+                        <div>
+                            <button class="btn-icon" id="selectAllReleases">全选</button>
+                            <button class="btn-icon" id="deselectAllReleases">取消全选</button>
+                        </div>
+                    </div>
+                </div>
+                <h4 style="margin: 1rem 0 0.5rem;">选择存储桶：</h4>
+                <div id="bucketCardGrid" class="buckets-grid"></div>
+            </div>
+        \`;
+        
+        // 替换模态框内容（保留底部按钮）
+        const oldBody = modalContent.querySelector('.modal-body');
+        if (oldBody) {
+            oldBody.innerHTML = html;
+        } else {
+            // 如果没有body，则创建
+            const bodyDiv = document.createElement('div');
+            bodyDiv.className = 'modal-body';
+            bodyDiv.innerHTML = html;
+            modalContent.appendChild(bodyDiv);
+        }
+
+        // 重新获取元素引用
+        const backupFilesCheckbox = document.getElementById('backupFilesCheckbox');
+        const backupReleasesCheckbox = document.getElementById('backupReleasesCheckbox');
+        const releasesSection = document.getElementById('releasesSection');
+        const releasesListDiv = document.getElementById('releasesList');
+        const releaseCountSpan = document.getElementById('releaseCount');
+        const selectAllBtn = document.getElementById('selectAllReleases');
+        const deselectAllBtn = document.getElementById('deselectAllReleases');
+        const bucketGrid = document.getElementById('bucketCardGrid');
+
+        // 渲染桶卡片
         if (buckets.length === 0) {
-            bucketCardGrid.innerHTML = '<div class="empty-state">暂无桶配置，请先添加</div>';
+            bucketGrid.innerHTML = '<div class="empty-state">暂无桶配置，请先添加</div>';
         } else {
             const cardsHtml = buckets.map((bucket, index) => {
                 const usagePercent = (bucket.usage / bucket.total) * 100;
@@ -1227,7 +1292,7 @@ export const clientJS = `
                     </div>
                 \`;
             }).join('');
-            bucketCardGrid.innerHTML = cardsHtml;
+            bucketGrid.innerHTML = cardsHtml;
 
             // 添加点击选中效果
             document.querySelectorAll('.selectable-card').forEach(card => {
@@ -1237,52 +1302,146 @@ export const clientJS = `
                 });
             });
         }
-        selectBucketModal.style.display = 'flex';
-    }
 
-    if (closeSelectBucketModal) {
-        closeSelectBucketModal.addEventListener('click', () => {
-            if (selectBucketModal) selectBucketModal.style.display = 'none';
-        });
-    }
-    if (selectBucketModal) {
-        selectBucketModal.addEventListener('click', (e) => {
-            if (e.target === selectBucketModal) selectBucketModal.style.display = 'none';
-        });
-    }
-
-    if (confirmSelectBucketBtn) {
-        confirmSelectBucketBtn.addEventListener('click', async () => {
-            const selectedCard = document.querySelector('.selectable-card.bucket-card-selected');
-            if (!selectedCard) {
-                alert('请选择一个桶');
-                return;
-            }
-            const bucketId = selectedCard.dataset.bucketId;
-            const project = currentProjectToBackup;
-            if (!project) {
-                alert('项目信息丢失');
-                return;
-            }
-            const res = await fetch(apiBase + '/project', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ type: project.type, name: project.name, bucketId })
-            });
-            const result = await res.json();
-            if (result.success) {
-                alert(\`完整备份任务已提交，任务ID: \${result.taskId}\`);
-                pollTaskStatus(result.taskId);
-                selectBucketModal.style.display = 'none';
-                currentProjectToBackup = null;
+        // 处理Releases复选框显示/隐藏
+        backupReleasesCheckbox.addEventListener('change', async (e) => {
+            if (e.target.checked) {
+                releasesSection.style.display = 'block';
+                // 加载Releases列表
+                await loadProjectReleases(project, releasesListDiv, releaseCountSpan);
             } else {
-                alert('保存失败：' + (result.error || '未知错误'));
+                releasesSection.style.display = 'none';
             }
         });
+
+        // 全选/取消全选
+        if (selectAllBtn) {
+            selectAllBtn.addEventListener('click', () => {
+                document.querySelectorAll('.release-checkbox').forEach(cb => cb.checked = true);
+            });
+        }
+        if (deselectAllBtn) {
+            deselectAllBtn.addEventListener('click', () => {
+                document.querySelectorAll('.release-checkbox').forEach(cb => cb.checked = false);
+            });
+        }
+
+        // 显示模态框
+        selectBucketModal.style.display = 'flex';
+
+        // 修改确认按钮事件（需要移除原有监听，重新绑定）
+        const confirmBtn = document.getElementById('confirmSelectBucketBtn');
+        if (confirmBtn) {
+            // 移除所有已绑定的监听（简单替换）
+            const newConfirmBtn = confirmBtn.cloneNode(true);
+            confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+            newConfirmBtn.addEventListener('click', confirmBackup);
+        }
+    }
+
+    // 加载项目Releases列表
+    async function loadProjectReleases(project, container, countSpan) {
+        if (!project) return;
+        container.innerHTML = '<div class="loading-indicator">加载中...</div>';
+        try {
+            let releases = [];
+            if (project.type === 'github') {
+                const [owner, repo] = project.name.split('/');
+                const url = \`https://api.github.com/repos/\${owner}/\${repo}/releases?per_page=20\`;
+                const res = await fetch(url, {
+                    headers: { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'B2-Mirror-Worker' }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    releases = data.map(r => ({
+                        tag: r.tag_name,
+                        name: r.name || r.tag_name,
+                        published: r.published_at ? r.published_at.split('T')[0] : '未知',
+                        assets: r.assets.length
+                    }));
+                }
+            } else {
+                // Docker暂不支持Releases备份，可留空或提示
+                container.innerHTML = '<div class="empty-state">Docker镜像暂无Releases备份功能</div>';
+                return;
+            }
+
+            if (releases.length === 0) {
+                container.innerHTML = '<div class="empty-state">暂无Releases</div>';
+                if (countSpan) countSpan.innerText = '0';
+                return;
+            }
+
+            const html = releases.map((r, idx) => \`
+                <div style="display: flex; align-items: center; padding: 0.5rem; border-bottom: 1px solid #f1f5f9;">
+                    <input type="checkbox" class="release-checkbox" data-tag="\${r.tag}" \${idx < 5 ? 'checked' : ''}>
+                    <span style="margin-left: 0.5rem; flex:1;">
+                        <strong>\${r.tag}</strong> <span style="color:#64748b; font-size:0.85rem;">(\${r.published})</span>
+                    </span>
+                    <span style="color:#475569; font-size:0.85rem;">\${r.assets} 个资产</span>
+                </div>
+            \`).join('');
+            container.innerHTML = html;
+            if (countSpan) countSpan.innerText = releases.length;
+        } catch (e) {
+            container.innerHTML = '<div class="empty-state">加载失败</div>';
+            console.error(e);
+        }
+    }
+
+    // 确认备份
+    async function confirmBackup() {
+        const selectedCard = document.querySelector('.selectable-card.bucket-card-selected');
+        if (!selectedCard) {
+            alert('请选择一个桶');
+            return;
+        }
+        const bucketId = selectedCard.dataset.bucketId;
+        const project = currentProjectToBackup;
+        if (!project) {
+            alert('项目信息丢失');
+            return;
+        }
+
+        const backupFiles = document.getElementById('backupFilesCheckbox')?.checked || false;
+        const backupReleases = document.getElementById('backupReleasesCheckbox')?.checked || false;
+        let selectedReleases = [];
+        if (backupReleases) {
+            const checkboxes = document.querySelectorAll('.release-checkbox:checked');
+            selectedReleases = Array.from(checkboxes).map(cb => cb.dataset.tag);
+        }
+
+        if (!backupFiles && selectedReleases.length === 0) {
+            alert('请至少选择一项备份内容');
+            return;
+        }
+
+        const payload = {
+            type: project.type,
+            name: project.name,
+            bucketId,
+            backupFiles,
+            releases: selectedReleases
+        };
+
+        const res = await fetch(apiBase + '/project', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const result = await res.json();
+        if (result.success) {
+            alert(\`备份任务已提交，任务ID: \${result.taskId}\`);
+            pollTaskStatus(result.taskId);
+            selectBucketModal.style.display = 'none';
+            currentProjectToBackup = null;
+        } else {
+            alert('保存失败：' + (result.error || '未知错误'));
+        }
     }
 
     // ============================================================================
-    // 12. 队列信息显示（仅显示任务状态，无进度）
+    // 13. 队列信息显示（仅显示任务状态，无进度）
     // ============================================================================
 
     const queueMenuBtn = safeGet('queueMenuBtn');
@@ -1358,7 +1517,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 13. 项目卡片渲染（保持不变）
+    // 14. 项目卡片渲染
     // ============================================================================
 
     const githubGrid = safeGet('githubGrid');
@@ -1458,7 +1617,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 14. 悬浮窗（Releases）保持不变
+    // 15. 悬浮窗（Releases）
     // ============================================================================
 
     const popup = safeGet('releasesPopup');
@@ -1548,7 +1707,7 @@ export const clientJS = `
     if (popup) popup.addEventListener('click', (e) => { if (e.target === popup) popup.style.display = 'none'; });
 
     // ============================================================================
-    // 15. 标签切换（保持不变）
+    // 16. 标签切换
     // ============================================================================
 
     function setActiveTab(tabId) {
@@ -1571,7 +1730,7 @@ export const clientJS = `
     tabs.forEach(tab => tab.addEventListener('click', () => setActiveTab(tab.dataset.tab)));
 
     // ============================================================================
-    // 16. 任务轮询（保持不变）
+    // 17. 任务轮询
     // ============================================================================
 
     function pollTaskStatus(taskId) {
@@ -1597,7 +1756,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 17. 事件绑定（登录等，保持不变）
+    // 18. 事件绑定（登录等）
     // ============================================================================
 
     if (loginBtn) loginBtn.addEventListener('click', () => { if (loginModal) loginModal.style.display = 'flex'; });
@@ -1647,7 +1806,7 @@ export const clientJS = `
     });
 
     // ============================================================================
-    // 18. 初始化
+    // 19. 初始化
     // ============================================================================
 
     await loadData();
