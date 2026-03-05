@@ -35,10 +35,15 @@ export const clientJS = `
     // 令牌管理相关
     let githubTokens = [];
     let dockerTokens = [];
-    let githubDeleteMode = false;          // GitHub 面板是否处于删除模式
-    let dockerDeleteMode = false;          // Docker 面板是否处于删除模式
-    let githubSelectedTokens = new Set();  // 选中的 GitHub 令牌索引
-    let dockerSelectedTokens = new Set();  // 选中的 Docker 令牌索引
+    let githubDeleteMode = false;
+    let dockerDeleteMode = false;
+    let githubSelectedTokens = new Set();
+    let dockerSelectedTokens = new Set();
+
+    // 备份选项相关
+    let currentReleases = [];
+    let currentReleaseIndex = 0;
+    let selectedAssets = new Set();
 
     // ============================================================================
     // 3. 数据加载与更新
@@ -57,7 +62,6 @@ export const clientJS = `
             buckets = await bucketsRes.json();
             config = await configRes.json();
 
-            // 为每个桶添加模拟使用量（实际应从B2获取）
             buckets = buckets.map(b => ({
                 ...b,
                 usage: b.usage !== undefined ? b.usage : Math.random() * 10,
@@ -154,7 +158,6 @@ export const clientJS = `
         }).join('');
         bucketsList.innerHTML = cardsHtml;
 
-        // 点击卡片切换复选框
         document.querySelectorAll('.bucket-card').forEach(card => {
             card.addEventListener('click', (e) => {
                 if (e.target.classList.contains('edit-icon') || e.target.classList.contains('bucket-checkbox')) return;
@@ -170,7 +173,6 @@ export const clientJS = `
             });
         });
 
-        // 绑定编辑图标事件
         document.querySelectorAll('.edit-icon').forEach(icon => {
             icon.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -179,7 +181,6 @@ export const clientJS = `
             });
         });
 
-        // 更新Snippets JSON显示（使用 snippetId）
         if (snippetsJson) {
             const validBuckets = buckets.filter(b => b.snippetId && b.snippetId.trim() !== '');
             const snippets = validBuckets.reduce((acc, b) => {
@@ -226,7 +227,6 @@ export const clientJS = `
         if (mode === 'add') {
             bucketModalTitle.innerText = '添加新桶';
             bucketCustomName.value = '';
-            // 生成新内部ID并显示
             const newId = generateBucketId();
             if (displayInternalId) displayInternalId.innerText = newId;
             if (internalId) internalId.value = newId;
@@ -240,7 +240,6 @@ export const clientJS = `
             const bucket = buckets[index];
             bucketModalTitle.innerText = '编辑桶';
             bucketCustomName.value = bucket.customName || '';
-            // 显示内部ID
             if (displayInternalId) displayInternalId.innerText = bucket.id || '';
             if (internalId) internalId.value = bucket.id || '';
             bucketKeyID.value = bucket.keyID || '';
@@ -256,7 +255,6 @@ export const clientJS = `
     function exitDeleteMode() {
         deleteModeActive = false;
         if (bucketsList) bucketsList.classList.remove('delete-mode');
-        // 移除所有卡片的选中类
         document.querySelectorAll('.bucket-card').forEach(card => {
             card.classList.remove('bucket-card-selected');
         });
@@ -264,7 +262,7 @@ export const clientJS = `
         if (cancelBtn) cancelBtn.remove();
         if (deleteModeBtn) {
             deleteModeBtn.innerHTML = '<i class="fas fa-trash"></i>';
-            deleteModeBtn.classList.add('btn-danger'); // 保持红色
+            deleteModeBtn.classList.add('btn-danger');
         }
         selectedBuckets.clear();
         renderBucketsCards();
@@ -285,12 +283,10 @@ export const clientJS = `
         }
     }
 
-    // 添加桶按钮
     if (addBucketBtn) {
         addBucketBtn.addEventListener('click', () => openBucketModal('add'));
     }
 
-    // 删除模式按钮
     if (deleteModeBtn) {
         deleteModeBtn.addEventListener('click', () => {
             if (!deleteModeActive) {
@@ -322,7 +318,6 @@ export const clientJS = `
         });
     }
 
-    // 监听复选框变化
     document.addEventListener('change', (e) => {
         if (e.target.classList.contains('bucket-checkbox')) {
             const index = parseInt(e.target.dataset.index);
@@ -336,11 +331,9 @@ export const clientJS = `
                     selectedBuckets.delete(index);
                 }
             }
-            console.log('当前选中索引:', Array.from(selectedBuckets));
         }
     });
 
-    // 关闭模态框
     if (closeBucketModal) {
         closeBucketModal.addEventListener('click', () => { if (bucketModal) bucketModal.style.display = 'none'; });
     }
@@ -348,7 +341,6 @@ export const clientJS = `
         bucketModal.addEventListener('click', (e) => { if (e.target === bucketModal) bucketModal.style.display = 'none'; });
     }
 
-    // 提交桶表单
     if (bucketForm) {
         bucketForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -357,7 +349,7 @@ export const clientJS = `
             const appKey = bucketAppKey.value.trim();
             const bktName = bucketName.value.trim();
             const endpoint = bucketEndpoint.value.trim();
-            const idValue = internalId.value.trim(); // 从隐藏字段取值
+            const idValue = internalId.value.trim();
             const snippetId = bucketSnippetId.value.trim();
             const index = parseInt(editingIndex.value);
 
@@ -400,7 +392,6 @@ export const clientJS = `
         });
     }
 
-    // 导入 JSON
     if (importJsonBtn && snippetsJson) {
         importJsonBtn.addEventListener('click', () => {
             try {
@@ -422,7 +413,6 @@ export const clientJS = `
         });
     }
 
-    // 保存 JSON
     if (saveJsonBtn && snippetsJson) {
         saveJsonBtn.addEventListener('click', () => {
             try {
@@ -444,7 +434,6 @@ export const clientJS = `
         });
     }
 
-    // 桶连接验证
     if (verifyBucketBtn) {
         verifyBucketBtn.addEventListener('click', async () => {
             const keyID = bucketKeyID.value.trim();
@@ -554,19 +543,17 @@ export const clientJS = `
     // 9. 令牌管理（GitHub 和 Docker）
     // ============================================================================
 
-    // 加载 GitHub 令牌
     async function loadGithubTokens() {
         try {
             const res = await fetch(apiBase + '/tokens/github');
             if (!res.ok) throw new Error('加载失败');
-            githubTokens = await res.json(); // 数组，每个对象有 index, name, usageCount
+            githubTokens = await res.json();
             renderGithubTokens();
         } catch (e) {
             console.error('加载 GitHub 令牌失败', e);
         }
     }
 
-    // 加载 Docker 令牌
     async function loadDockerTokens() {
         try {
             const res = await fetch(apiBase + '/tokens/docker');
@@ -578,7 +565,6 @@ export const clientJS = `
         }
     }
 
-    // 渲染 GitHub 令牌（无复选框）
     function renderGithubTokens() {
         const container = safeGet('githubTokensList');
         if (!container) return;
@@ -600,10 +586,8 @@ export const clientJS = `
         }).join('');
         container.innerHTML = cardsHtml;
 
-        // 绑定卡片点击事件（用于选择）
         document.querySelectorAll('#githubTokensList .bucket-card').forEach(card => {
             card.addEventListener('click', (e) => {
-                // 只有在删除模式下才处理选择
                 if (!githubDeleteMode) return;
                 const index = parseInt(card.dataset.index);
                 if (githubSelectedTokens.has(index)) {
@@ -617,7 +601,6 @@ export const clientJS = `
         });
     }
 
-    // 渲染 Docker 令牌（无复选框）
     function renderDockerTokens() {
         const container = safeGet('dockerTokensList');
         if (!container) return;
@@ -639,7 +622,6 @@ export const clientJS = `
         }).join('');
         container.innerHTML = cardsHtml;
 
-        // 绑定卡片点击事件
         document.querySelectorAll('#dockerTokensList .bucket-card').forEach(card => {
             card.addEventListener('click', (e) => {
                 if (!dockerDeleteMode) return;
@@ -655,16 +637,13 @@ export const clientJS = `
         });
     }
 
-    // GitHub 删除模式切换（始终保留 btn-danger 类）
     function toggleGithubDeleteMode() {
         const deleteBtn = safeGet('deleteGithubTokenBtn');
         if (!deleteBtn) return;
         
         if (!githubDeleteMode) {
-            // 进入删除模式
             githubDeleteMode = true;
-            deleteBtn.innerHTML = '<i class="fas fa-trash"></i> 删除'; // 改变文字，保留图标
-            // 添加取消按钮
+            deleteBtn.innerHTML = '<i class="fas fa-trash"></i> 删除';
             let cancelBtn = document.getElementById('cancelGithubDelete');
             if (!cancelBtn) {
                 cancelBtn = document.createElement('button');
@@ -674,7 +653,7 @@ export const clientJS = `
                 deleteBtn.parentNode.appendChild(cancelBtn);
                 cancelBtn.addEventListener('click', () => {
                     githubDeleteMode = false;
-                    deleteBtn.innerHTML = '<i class="fas fa-trash"></i>'; // 恢复文字，仍保留红色
+                    deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
                     cancelBtn.remove();
                     githubSelectedTokens.clear();
                     renderGithubTokens();
@@ -682,7 +661,6 @@ export const clientJS = `
             }
             renderGithubTokens();
         } else {
-            // 执行删除
             if (githubSelectedTokens.size === 0) {
                 alert('请至少选择一个令牌');
                 return;
@@ -692,16 +670,14 @@ export const clientJS = `
                 await fetch(apiBase + '/tokens/github?index=' + idx, { method: 'DELETE' });
             })).then(() => {
                 loadGithubTokens();
-                // 退出删除模式
                 githubDeleteMode = false;
-                deleteBtn.innerHTML = '<i class="fas fa-trash"></i>'; // 恢复文字
+                deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
                 document.getElementById('cancelGithubDelete')?.remove();
                 githubSelectedTokens.clear();
             }).catch(e => alert('删除失败：' + e.message));
         }
     }
 
-    // Docker 删除模式切换（始终保留 btn-danger 类）
     function toggleDockerDeleteMode() {
         const deleteBtn = safeGet('deleteDockerTokenBtn');
         if (!deleteBtn) return;
@@ -743,7 +719,6 @@ export const clientJS = `
         }
     }
 
-    // GitHub 添加令牌模态框
     const githubTokenModal = safeGet('githubTokenModal');
     const closeGithubTokenModal = safeGet('closeGithubTokenModal');
     const githubTokenForm = safeGet('githubTokenForm');
@@ -789,7 +764,6 @@ export const clientJS = `
         });
     }
 
-    // Docker 添加令牌模态框
     const dockerTokenModal = safeGet('dockerTokenModal');
     const closeDockerTokenModal = safeGet('closeDockerTokenModal');
     const dockerTokenForm = safeGet('dockerTokenForm');
@@ -835,7 +809,6 @@ export const clientJS = `
         });
     }
 
-    // 标签页切换（同时切换操作按钮）
     const tokenTabs = document.querySelectorAll('.token-tab');
     const githubPanel = safeGet('githubTokenPanel');
     const dockerPanel = safeGet('dockerTokenPanel');
@@ -863,7 +836,6 @@ export const clientJS = `
         });
     }
 
-    // 绑定添加和删除按钮
     const addGithubBtn = safeGet('addGithubTokenBtn');
     if (addGithubBtn) addGithubBtn.addEventListener('click', openGithubTokenModal);
 
@@ -877,7 +849,7 @@ export const clientJS = `
     if (deleteDockerBtn) deleteDockerBtn.addEventListener('click', toggleDockerDeleteMode);
 
     // ============================================================================
-    // 10. 首页搜索功能（保持不变）
+    // 10. 首页搜索功能
     // ============================================================================
 
     const modeToggleBtn = safeGet('modeToggleBtn');
@@ -954,7 +926,6 @@ export const clientJS = `
                 officialResultsList.appendChild(newLoadingItem);
             }
 
-            // 事件委托处理 Releases 按钮点击
             if (officialResultsList) {
                 officialResultsList.addEventListener('click', async (e) => {
                     const btn = e.target.closest('.btn-release');
@@ -1084,7 +1055,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 11. 后台项目添加搜索（保持不变）
+    // 11. 后台项目添加搜索（增强版）
     // ============================================================================
 
     const addModeToggle = safeGet('addModeToggle');
@@ -1094,6 +1065,20 @@ export const clientJS = `
     const searchResultArea = safeGet('searchResultArea');
     const searchResultList = safeGet('searchResultList');
     const searchResultsScroll = safeGet('searchResultsScroll');
+
+    const backupOptionsModal = safeGet('backupOptionsModal');
+    const closeBackupOptionsModal = safeGet('closeBackupOptionsModal');
+    const backupProjectName = safeGet('backupProjectName');
+    const backupCodeCheckbox = safeGet('backupCodeCheckbox');
+    const backupReleasesCheckbox = safeGet('backupReleasesCheckbox');
+    const releasesSelector = safeGet('releasesSelector');
+    const backupVersionSelector = safeGet('backupVersionSelector');
+    const backupSelectedVersion = safeGet('backupSelectedVersion');
+    const backupVersionDropdown = safeGet('backupVersionDropdown');
+    const backupAssetsList = safeGet('backupAssetsList');
+    const cancelBackupOptions = safeGet('cancelBackupOptions');
+    const confirmBackupOptions = safeGet('confirmBackupOptions');
+
     const selectBucketModal = safeGet('selectBucketModal');
     const closeSelectBucketModal = safeGet('closeSelectBucketModal');
     const bucketCardGrid = safeGet('bucketCardGrid');
@@ -1144,7 +1129,7 @@ export const clientJS = `
                             </span>
                         </span>
                         <div>
-                            <button class="save-btn backup-btn" data-name="\${item.name}" data-type="\${item.type}">完整备份</button>
+                            <button class="save-btn backup-btn" data-name="\${item.name}" data-type="\${item.type}" data-owner="\${item.owner}" data-repo="\${item.repo}" data-has-releases="\${item.has_releases}">完整备份</button>
                         </div>
                     </div>\`;
                 if (searchResultList) searchResultList.insertAdjacentHTML('beforeend', itemHtml);
@@ -1158,13 +1143,15 @@ export const clientJS = `
                 searchResultsScroll.appendChild(newLoadingItem);
             }
 
-            // 绑定完整备份按钮事件
             document.querySelectorAll('.backup-btn').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     const name = e.target.dataset.name;
                     const type = e.target.dataset.type;
-                    currentProjectToBackup = { name, type };
-                    openSelectBucketModal();
+                    const owner = e.target.dataset.owner;
+                    const repo = e.target.dataset.repo;
+                    const hasReleases = e.target.dataset.hasReleases === 'true';
+                    currentProjectToBackup = { name, type, owner, repo, hasReleases };
+                    openBackupOptionsModal();
                 });
             });
 
@@ -1203,7 +1190,161 @@ export const clientJS = `
         });
     }
 
-    // 桶选择模态框（卡片样式）
+    // 备份选项模态框逻辑
+    async function openBackupOptionsModal() {
+        if (!currentProjectToBackup) return;
+        backupProjectName.innerText = currentProjectToBackup.name;
+        
+        backupCodeCheckbox.checked = true;
+        backupReleasesCheckbox.checked = false;
+        releasesSelector.style.display = 'none';
+        selectedAssets.clear();
+        
+        if (currentProjectToBackup.hasReleases && currentProjectToBackup.type === 'github') {
+            try {
+                backupAssetsList.innerHTML = '<div class="loading-releases">加载 Releases 中...</div>';
+                const url = \`https://api.github.com/repos/\${currentProjectToBackup.owner}/\${currentProjectToBackup.repo}/releases\`;
+                const res = await fetch(url, {
+                    headers: { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'B2-Mirror-Worker' }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    currentReleases = data.map(r => ({
+                        tag: r.tag_name,
+                        date: r.published_at?.split('T')[0] || r.created_at?.split('T')[0],
+                        assets: r.assets.map(a => ({
+                            name: a.name,
+                            size: a.size,
+                            url: a.browser_download_url
+                        }))
+                    }));
+                    if (currentReleases.length > 0) {
+                        currentReleaseIndex = 0;
+                        renderReleaseSelector();
+                    } else {
+                        backupAssetsList.innerHTML = '<div class="empty-releases">该项目无 Releases</div>';
+                    }
+                } else {
+                    backupAssetsList.innerHTML = '<div class="empty-releases">无法加载 Releases</div>';
+                }
+            } catch (e) {
+                backupAssetsList.innerHTML = '<div class="empty-releases">加载失败</div>';
+            }
+        } else {
+            backupReleasesCheckbox.disabled = true;
+            backupReleasesCheckbox.parentElement.style.opacity = '0.5';
+        }
+
+        backupOptionsModal.style.display = 'flex';
+    }
+
+    function renderReleaseSelector() {
+        if (currentReleases.length === 0) return;
+        const release = currentReleases[currentReleaseIndex];
+        backupSelectedVersion.innerText = release.date + ' - ' + release.tag;
+        
+        let dropdownHtml = '';
+        currentReleases.forEach((r, idx) => {
+            dropdownHtml += \`<div class="version-item-sm \${idx === currentReleaseIndex ? 'current' : ''}" data-release-index="\${idx}">\${r.date} - \${r.tag}</div>\`;
+        });
+        backupVersionDropdown.innerHTML = dropdownHtml;
+
+        let assetsHtml = '';
+        if (release.assets.length === 0) {
+            assetsHtml = '<div class="empty-releases">该版本无可下载文件</div>';
+        } else {
+            release.assets.forEach(asset => {
+                const assetId = \`\${release.tag}-\${asset.name}\`;
+                const checked = selectedAssets.has(assetId) ? 'checked' : '';
+                assetsHtml += \`
+                    <div class="asset-row">
+                        <input type="checkbox" class="asset-checkbox" data-asset-id="\${assetId}" data-tag="\${release.tag}" data-name="\${asset.name}" data-url="\${asset.url}" \${checked}>
+                        <span class="asset-name">\${asset.name}</span>
+                        <span class="asset-size">\${asset.size ? (asset.size/1024).toFixed(2) + ' KB' : ''}</span>
+                    </div>
+                \`;
+            });
+        }
+        backupAssetsList.innerHTML = assetsHtml;
+
+        document.querySelectorAll('.asset-checkbox').forEach(cb => {
+            cb.addEventListener('change', (e) => {
+                const assetId = e.target.dataset.assetId;
+                if (e.target.checked) {
+                    selectedAssets.add(assetId);
+                } else {
+                    selectedAssets.delete(assetId);
+                }
+            });
+        });
+
+        backupVersionDropdown.querySelectorAll('.version-item-sm').forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const newIdx = parseInt(item.dataset.releaseIndex);
+                if (newIdx !== currentReleaseIndex) {
+                    currentReleaseIndex = newIdx;
+                    renderReleaseSelector();
+                }
+                backupVersionDropdown.classList.remove('show');
+            });
+        });
+    }
+
+    if (backupReleasesCheckbox) {
+        backupReleasesCheckbox.addEventListener('change', (e) => {
+            releasesSelector.style.display = e.target.checked ? 'block' : 'none';
+        });
+    }
+
+    if (closeBackupOptionsModal) {
+        closeBackupOptionsModal.addEventListener('click', () => {
+            backupOptionsModal.style.display = 'none';
+        });
+    }
+    if (cancelBackupOptions) {
+        cancelBackupOptions.addEventListener('click', () => {
+            backupOptionsModal.style.display = 'none';
+        });
+    }
+    if (backupOptionsModal) {
+        backupOptionsModal.addEventListener('click', (e) => {
+            if (e.target === backupOptionsModal) backupOptionsModal.style.display = 'none';
+        });
+    }
+
+    if (backupVersionSelector) {
+        backupVersionSelector.addEventListener('click', (e) => {
+            e.stopPropagation();
+            backupVersionDropdown.classList.toggle('show');
+        });
+    }
+
+    if (confirmBackupOptions) {
+        confirmBackupOptions.addEventListener('click', () => {
+            const backupCode = backupCodeCheckbox.checked;
+            const backupReleases = backupReleasesCheckbox.checked;
+            const selectedAssetsArray = [];
+            if (backupReleases) {
+                document.querySelectorAll('.asset-checkbox:checked').forEach(cb => {
+                    selectedAssetsArray.push({
+                        tag: cb.dataset.tag,
+                        name: cb.dataset.name,
+                        url: cb.dataset.url
+                    });
+                });
+            }
+            
+            currentProjectToBackup.backupCode = backupCode;
+            currentProjectToBackup.backupReleases = backupReleases;
+            currentProjectToBackup.selectedAssets = selectedAssetsArray;
+
+            backupOptionsModal.style.display = 'none';
+            openSelectBucketModal();
+        });
+    }
+
+    // 桶选择模态框
     function openSelectBucketModal() {
         if (!bucketCardGrid || !selectBucketModal) return;
         
@@ -1229,7 +1370,6 @@ export const clientJS = `
             }).join('');
             bucketCardGrid.innerHTML = cardsHtml;
 
-            // 添加点击选中效果
             document.querySelectorAll('.selectable-card').forEach(card => {
                 card.addEventListener('click', () => {
                     document.querySelectorAll('.selectable-card').forEach(c => c.classList.remove('bucket-card-selected'));
@@ -1264,10 +1404,20 @@ export const clientJS = `
                 alert('项目信息丢失');
                 return;
             }
+
+            const requestBody = {
+                type: project.type,
+                name: project.name,
+                bucketId,
+                backupCode: project.backupCode,
+                backupReleases: project.backupReleases,
+                selectedAssets: project.selectedAssets
+            };
+
             const res = await fetch(apiBase + '/project', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ type: project.type, name: project.name, bucketId })
+                body: JSON.stringify(requestBody)
             });
             const result = await res.json();
             if (result.success) {
@@ -1282,7 +1432,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 12. 队列信息显示（仅显示任务状态，无进度）
+    // 12. 队列信息显示
     // ============================================================================
 
     const queueMenuBtn = safeGet('queueMenuBtn');
@@ -1298,7 +1448,6 @@ export const clientJS = `
             const data = await res.json();
             const tasks = data.tasks || [];
 
-            // 更新队列信息显示（只显示第一个任务名称）
             if (queueFileCount && queueFileName) {
                 if (tasks.length === 0) {
                     queueFileCount.style.display = 'inline';
@@ -1312,7 +1461,6 @@ export const clientJS = `
                 }
             }
 
-            // 更新队列详情面板（仅显示项目名称和状态）
             if (queueTaskList) {
                 if (tasks.length === 0) {
                     queueTaskList.innerHTML = '<div class="empty-state">暂无活动任务</div>';
@@ -1358,7 +1506,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 13. 项目卡片渲染（保持不变）
+    // 13. 项目卡片渲染
     // ============================================================================
 
     const githubGrid = safeGet('githubGrid');
@@ -1458,7 +1606,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 14. 悬浮窗（Releases）保持不变
+    // 14. 悬浮窗（Releases）
     // ============================================================================
 
     const popup = safeGet('releasesPopup');
@@ -1548,7 +1696,7 @@ export const clientJS = `
     if (popup) popup.addEventListener('click', (e) => { if (e.target === popup) popup.style.display = 'none'; });
 
     // ============================================================================
-    // 15. 标签切换（保持不变）
+    // 15. 标签切换
     // ============================================================================
 
     function setActiveTab(tabId) {
@@ -1571,7 +1719,7 @@ export const clientJS = `
     tabs.forEach(tab => tab.addEventListener('click', () => setActiveTab(tab.dataset.tab)));
 
     // ============================================================================
-    // 16. 任务轮询（保持不变）
+    // 16. 任务轮询
     // ============================================================================
 
     function pollTaskStatus(taskId) {
@@ -1597,7 +1745,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 17. 事件绑定（登录等，保持不变）
+    // 17. 事件绑定（登录等）
     // ============================================================================
 
     if (loginBtn) loginBtn.addEventListener('click', () => { if (loginModal) loginModal.style.display = 'flex'; });
@@ -1625,7 +1773,6 @@ export const clientJS = `
 
     if (logoutBtn) logoutBtn.addEventListener('click', () => { setLoggedIn(false); if (userDropdown) userDropdown.classList.remove('show'); });
 
-    // 自定义项目模态框（演示）
     const openCustomProject = safeGet('openCustomProject');
     const customProjectModal = safeGet('customProjectModal');
     const closeCustomModal = safeGet('closeCustomModal');
@@ -1639,7 +1786,6 @@ export const clientJS = `
     if (saveCustomProjects) saveCustomProjects.addEventListener('click', () => { if (customProjectModal) customProjectModal.style.display = 'none'; alert('已保存自定义项目选择（演示）'); });
     if (customProjectModal) customProjectModal.addEventListener('click', e => { if (e.target === customProjectModal) customProjectModal.style.display = 'none'; });
 
-    // 全局演示提示
     document.addEventListener('click', (e) => {
         if (e.target.closest('.git-link-btn')) alert('复制 Git 链接演示 (本站代理链接)');
         else if (e.target.closest('.btn-download:not(.btn-stream)')) alert('下载项目ZIP / pull (通过本站代理)');
@@ -1651,8 +1797,8 @@ export const clientJS = `
     // ============================================================================
 
     await loadData();
-    await loadGithubTokens(); // 加载 GitHub 令牌
-    await loadDockerTokens(); // 加载 Docker 令牌
+    await loadGithubTokens();
+    await loadDockerTokens();
     renderGrid();
     setActiveTab('github');
     if (modeText) modeText.innerText = '存储库';
