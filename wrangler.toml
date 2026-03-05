@@ -1,0 +1,22 @@
+name = "mirrorworkshop"
+main = "index.js"
+compatibility_date = "2024-01-01"
+
+[[kv_namespaces]]
+binding = "B2_KV"
+
+[[queues.producers]]
+queue = "mirror-tasks"
+binding = "TASKS_QUEUE"
+
+[[queues.consumers]]
+queue = "mirror-tasks"
+max_batch_size = 1
+max_retries = 3
+max_concurrency = 1
+
+# D1 数据库绑定
+[[d1_databases]]
+binding = "DB"               # 在 Worker 中通过 env.DB 访问
+database_name = "b2-mirror-db"
+database_id = "your-database-id"  # 替换为实际 ID
