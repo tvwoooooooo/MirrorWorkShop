@@ -170,7 +170,7 @@ export const autoMonitorHTML = `
     </div>
 </div>
 
-<!-- GitHub 令牌模态框（不变） -->
+<!-- GitHub 令牌模态框 -->
 <div class="modal-overlay" id="githubTokenModal" style="display: none;">
     <div class="modal-content" style="max-width: 450px;">
         <div class="modal-header">
@@ -193,7 +193,7 @@ export const autoMonitorHTML = `
     </div>
 </div>
 
-<!-- Docker 令牌模态框（不变） -->
+<!-- Docker 令牌模态框 -->
 <div class="modal-overlay" id="dockerTokenModal" style="display: none;">
     <div class="modal-content" style="max-width: 450px;">
         <div class="modal-header">
