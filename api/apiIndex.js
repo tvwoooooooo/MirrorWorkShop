@@ -1,6 +1,6 @@
 // api/apiIndex.js
 import { handleSearch } from './search.js';
-import { handleProjects, handleProject } from './projects.js';
+import { handleProjects, handleProject, handleRepoTree, handleRepoReleases, handleDetailedProject } from './projects.js';
 import { handleBuckets } from './buckets.js';
 import { handleConfig } from './config.js';
 import { handleTask } from './task.js';
@@ -24,6 +24,15 @@ export async function handleAPI(request, env) {
   }
   if (path === 'project' && method === 'POST') {
     return handleProject(request, env);
+  }
+  if (path === 'project/detailed' && method === 'POST') {
+    return handleDetailedProject(request, env);
+  }
+  if (path === 'repo-tree' && method === 'GET') {
+    return handleRepoTree(request, env);
+  }
+  if (path === 'repo-releases' && method === 'GET') {
+    return handleRepoReleases(request, env);
   }
   if (path === 'buckets' && (method === 'GET' || method === 'POST')) {
     return handleBuckets(request, env);
