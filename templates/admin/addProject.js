@@ -139,7 +139,6 @@ export const addProjectHTML = `
                 <i class="fas fa-bars"></i>
             </div>
         </div>
-        <!-- 队列详情面板移到此处作为绝对定位子元素 -->
         <div id="queueDetailPanel" class="queue-detail-panel hide">
             <h4>队列任务</h4>
             <div id="queueTaskList"></div>
@@ -185,7 +184,6 @@ export const addProjectHTML = `
                 <span style="margin-left: auto;" id="selectedFilesCount">全部文件</span>
             </div>
             <div id="fileTreeContainer" class="file-tree">
-                <!-- 动态生成文件列表 -->
                 <div class="loading-indicator">加载文件列表中...</div>
             </div>
             
@@ -193,11 +191,10 @@ export const addProjectHTML = `
             <h4 style="margin: 0.5rem 0;">Releases</h4>
             <div class="select-all-bar">
                 <input type="checkbox" id="selectAllReleases">
-                <label for="selectAllReleases">全选所有 Releases</label>
-                <span style="margin-left: auto;" id="selectedReleasesCount">0 个版本</span>
+                <label for="selectAllReleases">全选所有 Releases 资产</label>
+                <span style="margin-left: auto;" id="selectedReleasesCount">0 个文件</span>
             </div>
             <div id="releasesContainer" class="releases-container">
-                <!-- 动态生成 releases 列表 -->
                 <div class="loading-indicator">加载 Releases 中...</div>
             </div>
         </div>
@@ -224,7 +221,7 @@ export const addProjectHTML = `
     </div>
 </div>
 
-<!-- 选择存储桶模态框（旧，保留用于兼容，但不再使用？为了安全保留，但实际将使用新流程） -->
+<!-- 旧的选择存储桶模态框（保留用于兼容） -->
 <div class="modal-overlay" id="selectBucketModal" style="display: none;">
     <div class="modal-content" style="max-width: 500px;">
         <div class="modal-header">
