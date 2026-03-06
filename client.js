@@ -64,7 +64,7 @@ export const clientJS = `
             buckets = await bucketsRes.json();
             config = await configRes.json();
 
-            // 为每个桶添加模拟使用量
+            // 为每个桶添加模拟使用量（实际应从B2获取）
             buckets = buckets.map(b => ({
                 ...b,
                 usage: b.usage !== undefined ? b.usage : Math.random() * 10,
@@ -566,7 +566,7 @@ export const clientJS = `
         try {
             const res = await fetch(apiBase + '/tokens/github');
             if (!res.ok) throw new Error('加载失败');
-            githubTokens = await res.json();
+            githubTokens = await res.json(); // 数组，每个对象有 index, name, usageCount
             renderGithubTokens();
         } catch (e) {
             console.error('加载 GitHub 令牌失败', e);
@@ -607,7 +607,7 @@ export const clientJS = `
         }).join('');
         container.innerHTML = cardsHtml;
 
-        // 绑定卡片点击事件
+        // 绑定卡片点击事件（用于选择）
         document.querySelectorAll('#githubTokensList .bucket-card').forEach(card => {
             card.addEventListener('click', (e) => {
                 if (!githubDeleteMode) return;
@@ -645,6 +645,7 @@ export const clientJS = `
         }).join('');
         container.innerHTML = cardsHtml;
 
+        // 绑定卡片点击事件
         document.querySelectorAll('#dockerTokensList .bucket-card').forEach(card => {
             card.addEventListener('click', (e) => {
                 if (!dockerDeleteMode) return;
@@ -836,7 +837,7 @@ export const clientJS = `
         });
     }
 
-    // 标签页切换（同时切换操作按钮）
+    // 标签页切换
     const tokenTabs = document.querySelectorAll('.token-tab');
     const githubPanel = safeGet('githubTokenPanel');
     const dockerPanel = safeGet('dockerTokenPanel');
@@ -1095,6 +1096,11 @@ export const clientJS = `
     const searchResultArea = safeGet('searchResultArea');
     const searchResultList = safeGet('searchResultList');
     const searchResultsScroll = safeGet('searchResultsScroll');
+    // 旧的选择桶模态框相关变量（保留但不再使用）
+    const selectBucketModal = safeGet('selectBucketModal');
+    const closeSelectBucketModal = safeGet('closeSelectBucketModal');
+    const bucketCardGrid = safeGet('bucketCardGrid');
+    const confirmSelectBucketBtn = safeGet('confirmSelectBucketBtn');
 
     let addMode = 'GitHub';
     if (addModeToggle) {
@@ -1203,6 +1209,84 @@ export const clientJS = `
             adminHasMore = true;
             if (searchResultArea) searchResultArea.classList.remove('hide');
             await loadAdminResults(adminQuery, adminType, 1);
+        });
+    }
+
+    // 旧的选择桶模态框（保留但不再使用，为兼容保留）
+    function openSelectBucketModal() {
+        if (!bucketCardGrid || !selectBucketModal) return;
+        
+        if (buckets.length === 0) {
+            bucketCardGrid.innerHTML = '<div class="empty-state">暂无桶配置，请先添加</div>';
+        } else {
+            const cardsHtml = buckets.map((bucket, index) => {
+                const usagePercent = (bucket.usage / bucket.total) * 100;
+                let bgColorClass = 'green';
+                if (usagePercent >= 80) bgColorClass = 'red';
+                else if (usagePercent >= 60) bgColorClass = 'orange';
+                else if (usagePercent >= 40) bgColorClass = 'yellow';
+
+                return \`
+                    <div class="bucket-card selectable-card" data-bucket-id="\${bucket.id}" data-index="\${index}">
+                        <div class="progress-bg \${bgColorClass}" style="width: \${usagePercent}%;"></div>
+                        <div class="percentage">\${usagePercent.toFixed(1)}%</div>
+                        <div class="bucket-content">
+                            <span class="bucket-name">\${bucket.customName}</span>
+                        </div>
+                    </div>
+                \`;
+            }).join('');
+            bucketCardGrid.innerHTML = cardsHtml;
+
+            // 添加点击选中效果
+            document.querySelectorAll('.selectable-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    document.querySelectorAll('.selectable-card').forEach(c => c.classList.remove('bucket-card-selected'));
+                    card.classList.add('bucket-card-selected');
+                });
+            });
+        }
+        selectBucketModal.style.display = 'flex';
+    }
+
+    if (closeSelectBucketModal) {
+        closeSelectBucketModal.addEventListener('click', () => {
+            if (selectBucketModal) selectBucketModal.style.display = 'none';
+        });
+    }
+    if (selectBucketModal) {
+        selectBucketModal.addEventListener('click', (e) => {
+            if (e.target === selectBucketModal) selectBucketModal.style.display = 'none';
+        });
+    }
+
+    if (confirmSelectBucketBtn) {
+        confirmSelectBucketBtn.addEventListener('click', async () => {
+            const selectedCard = document.querySelector('.selectable-card.bucket-card-selected');
+            if (!selectedCard) {
+                alert('请选择一个桶');
+                return;
+            }
+            const bucketId = selectedCard.dataset.bucketId;
+            const project = currentProjectToBackup;
+            if (!project) {
+                alert('项目信息丢失');
+                return;
+            }
+            const res = await fetch(apiBase + '/project', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type: project.type, name: project.name, bucketId })
+            });
+            const result = await res.json();
+            if (result.success) {
+                alert(\`完整备份任务已提交，任务ID: \${result.taskId}\`);
+                pollTaskStatus(result.taskId);
+                selectBucketModal.style.display = 'none';
+                currentProjectToBackup = null;
+            } else {
+                alert('保存失败：' + (result.error || '未知错误'));
+            }
         });
     }
 
@@ -1552,6 +1636,7 @@ export const clientJS = `
             const data = await res.json();
             const tasks = data.tasks || [];
 
+            // 更新队列信息显示（只显示第一个任务名称）
             if (queueFileCount && queueFileName) {
                 if (tasks.length === 0) {
                     queueFileCount.style.display = 'inline';
@@ -1565,6 +1650,7 @@ export const clientJS = `
                 }
             }
 
+            // 更新队列详情面板（仅显示项目名称和状态）
             if (queueTaskList) {
                 if (tasks.length === 0) {
                     queueTaskList.innerHTML = '<div class="empty-state">暂无活动任务</div>';
