@@ -1,7 +1,7 @@
 // queue.js
 import { processBatch, processAsset } from './lib/batchProcessor.js';
 import { getRepoFileTree } from './lib/githubDownloader.js';
-import { createMasterTask, updateMasterTaskProgress, completeMasterTask, getMasterTask } from './lib/taskManager.js';
+import { createMasterTask, updateMasterTaskProgress, completeMasterTask, getMasterTask, getActiveTasks } from './lib/taskManager.js';
 
 export async function queueHandler(batch, env, ctx) {
   for (const message of batch.messages) {
@@ -14,22 +14,25 @@ export async function queueHandler(batch, env, ctx) {
         // 如果没有提供 files，则获取整个文件树（兼容旧版）
         const fileList = files || await getRepoFileTree(owner, repo, env);
         
-        // 创建主任务（包含文件数和资产数）
+        // 使用 D1 的 createMasterTask（已包含队列发送）
         await createMasterTask(env, taskId, owner, repo, bucketId, fileList, assets || []);
         
         message.ack();
       } catch (error) {
         console.error('Master task failed:', error);
-        await env.B2_KV.put(`master:${task.taskId}`, JSON.stringify({
-          status: 'failed',
-          owner: task.owner,
-          repo: task.repo,
-          bucketId: task.bucketId,
-          error: error.message,
-          stack: error.stack,
-          createdAt: Date.now(),
-          failedAt: Date.now()
-        }));
+        // 记录失败到 D1
+        await env.DB.prepare(`
+            INSERT OR REPLACE INTO master_tasks (task_id, owner, repo, bucket_id, status, created_at, completed_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        `).bind(
+            task.taskId,
+            task.owner,
+            task.repo,
+            task.bucketId,
+            'failed',
+            Date.now(),
+            Date.now()
+        ).run();
         message.ack();
       }
     } else if (task.type === 'batch') {
@@ -55,10 +58,10 @@ export async function queueHandler(batch, env, ctx) {
 }
 
 export async function handleQueueStatus(request, env) {
-  const activeTasks = await env.B2_KV.get('active_tasks', 'json') || [];
+  const activeTasks = await getActiveTasks(env);
   const tasks = activeTasks.map(t => ({
     name: t.name,
-    status: t.status || 'processing'
+    status: t.status
   }));
   return Response.json({ tasks });
 }
