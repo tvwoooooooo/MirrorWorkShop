@@ -1,7 +1,7 @@
 // queue.js
-import { processBatch } from './lib/batchProcessor.js';
+import { processBatch, processAsset } from './lib/batchProcessor.js';
 import { getRepoFileTree } from './lib/githubDownloader.js';
-import { createMasterTask, completeMasterTask } from './lib/taskManager.js';
+import { createMasterTask, updateMasterTaskProgress, completeMasterTask, getMasterTask } from './lib/taskManager.js';
 
 export async function queueHandler(batch, env, ctx) {
   for (const message of batch.messages) {
@@ -9,10 +9,14 @@ export async function queueHandler(batch, env, ctx) {
     
     if (task.type === 'master') {
       try {
-        const { taskId, owner, repo, bucketId } = task;
-        // 传入 env
-        const filePaths = await getRepoFileTree(owner, repo, env);
-        await createMasterTask(env, taskId, owner, repo, bucketId, filePaths);
+        const { taskId, owner, repo, bucketId, files, assets } = task;
+        
+        // 如果没有提供 files，则获取整个文件树（兼容旧版）
+        const fileList = files || await getRepoFileTree(owner, repo, env);
+        
+        // 创建主任务（包含文件数和资产数）
+        await createMasterTask(env, taskId, owner, repo, bucketId, fileList, assets || []);
+        
         message.ack();
       } catch (error) {
         console.error('Master task failed:', error);
@@ -34,6 +38,14 @@ export async function queueHandler(batch, env, ctx) {
         message.ack();
       } catch (error) {
         console.error('Batch task failed', error);
+        message.retry();
+      }
+    } else if (task.type === 'asset') {
+      try {
+        await processAsset(task, env);
+        message.ack();
+      } catch (error) {
+        console.error('Asset task failed', error);
         message.retry();
       }
     } else {
