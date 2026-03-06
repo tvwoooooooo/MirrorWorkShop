@@ -14,7 +14,7 @@ export async function handleSearch(request, env) {
   try {
     let result;
     if (type === 'github') {
-      result = await searchGitHub(query, page, perPage, env); // 传入 env
+      result = await searchGitHub(query, page, perPage, env);
     } else {
       result = await searchDockerHub(query, page, perPage);
     }
