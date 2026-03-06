@@ -79,6 +79,8 @@ export async function handleProject(request, env) {
         owner,
         repo,
         bucketId,
+        filesCount: filePaths.length,
+        assetsCount: 0,
         createdAt: Date.now()
     }));
 
@@ -156,7 +158,6 @@ export async function handleDetailedProject(request, env) {
 
     const taskId = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
 
-    // 发送主任务到队列（包含文件列表和资产列表）
     await env.TASKS_QUEUE.send(JSON.stringify({
         type: 'master',
         taskId,
