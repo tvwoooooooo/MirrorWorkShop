@@ -1,6 +1,7 @@
 // api/projects.js
 import { getRepoFileTree } from '../lib/githubDownloader.js';
 import { fetchWithRetry } from '../lib/github.js';
+import { createMasterTask } from '../lib/taskManager.js';
 
 /**
  * 初始化 projects 表（如果不存在）
@@ -61,28 +62,10 @@ export async function handleProject(request, env) {
 
     try {
         const filePaths = await getRepoFileTree(owner, repo, env);
-        await env.TASKS_QUEUE.send(JSON.stringify({
-            type: 'master',
-            taskId,
-            owner,
-            repo,
-            bucketId,
-            files: filePaths,
-            assets: []
-        }));
+        await createMasterTask(env, taskId, owner, repo, bucketId, filePaths, []);
     } catch (error) {
         return Response.json({ error: `获取文件树失败: ${error.message}` }, { status: 500 });
     }
-
-    await env.B2_KV.put(`master:${taskId}`, JSON.stringify({
-        status: 'queued',
-        owner,
-        repo,
-        bucketId,
-        filesCount: filePaths.length,
-        assetsCount: 0,
-        createdAt: Date.now()
-    }));
 
     return Response.json({ success: true, taskId, message: '完整备份任务已提交，正在处理' });
 }
@@ -157,26 +140,6 @@ export async function handleDetailedProject(request, env) {
     }
 
     const taskId = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
-
-    await env.TASKS_QUEUE.send(JSON.stringify({
-        type: 'master',
-        taskId,
-        owner,
-        repo,
-        bucketId,
-        files: files || [],
-        assets: assets || []
-    }));
-
-    await env.B2_KV.put(`master:${taskId}`, JSON.stringify({
-        status: 'queued',
-        owner,
-        repo,
-        bucketId,
-        filesCount: files?.length || 0,
-        assetsCount: assets?.length || 0,
-        createdAt: Date.now()
-    }));
-
+    await createMasterTask(env, taskId, owner, repo, bucketId, files || [], assets || []);
     return Response.json({ success: true, taskId, message: '详细备份任务已提交，正在处理' });
 }
