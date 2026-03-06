@@ -186,7 +186,7 @@ export const clientJS = `
             });
         });
 
-        // 更新Snippets JSON显示
+        // 更新Snippets JSON显示（使用 snippetId）
         if (snippetsJson) {
             const validBuckets = buckets.filter(b => b.snippetId && b.snippetId.trim() !== '');
             const snippets = validBuckets.reduce((acc, b) => {
@@ -233,6 +233,7 @@ export const clientJS = `
         if (mode === 'add') {
             bucketModalTitle.innerText = '添加新桶';
             bucketCustomName.value = '';
+            // 生成新内部ID并显示
             const newId = generateBucketId();
             if (displayInternalId) displayInternalId.innerText = newId;
             if (internalId) internalId.value = newId;
@@ -246,6 +247,7 @@ export const clientJS = `
             const bucket = buckets[index];
             bucketModalTitle.innerText = '编辑桶';
             bucketCustomName.value = bucket.customName || '';
+            // 显示内部ID
             if (displayInternalId) displayInternalId.innerText = bucket.id || '';
             if (internalId) internalId.value = bucket.id || '';
             bucketKeyID.value = bucket.keyID || '';
@@ -261,6 +263,7 @@ export const clientJS = `
     function exitDeleteMode() {
         deleteModeActive = false;
         if (bucketsList) bucketsList.classList.remove('delete-mode');
+        // 移除所有卡片的选中类
         document.querySelectorAll('.bucket-card').forEach(card => {
             card.classList.remove('bucket-card-selected');
         });
@@ -268,7 +271,7 @@ export const clientJS = `
         if (cancelBtn) cancelBtn.remove();
         if (deleteModeBtn) {
             deleteModeBtn.innerHTML = '<i class="fas fa-trash"></i>';
-            deleteModeBtn.classList.add('btn-danger');
+            deleteModeBtn.classList.add('btn-danger'); // 保持红色
         }
         selectedBuckets.clear();
         renderBucketsCards();
@@ -289,10 +292,12 @@ export const clientJS = `
         }
     }
 
+    // 添加桶按钮
     if (addBucketBtn) {
         addBucketBtn.addEventListener('click', () => openBucketModal('add'));
     }
 
+    // 删除模式按钮
     if (deleteModeBtn) {
         deleteModeBtn.addEventListener('click', () => {
             if (!deleteModeActive) {
@@ -324,6 +329,7 @@ export const clientJS = `
         });
     }
 
+    // 监听复选框变化
     document.addEventListener('change', (e) => {
         if (e.target.classList.contains('bucket-checkbox')) {
             const index = parseInt(e.target.dataset.index);
@@ -337,9 +343,11 @@ export const clientJS = `
                     selectedBuckets.delete(index);
                 }
             }
+            console.log('当前选中索引:', Array.from(selectedBuckets));
         }
     });
 
+    // 关闭模态框
     if (closeBucketModal) {
         closeBucketModal.addEventListener('click', () => { if (bucketModal) bucketModal.style.display = 'none'; });
     }
@@ -347,6 +355,7 @@ export const clientJS = `
         bucketModal.addEventListener('click', (e) => { if (e.target === bucketModal) bucketModal.style.display = 'none'; });
     }
 
+    // 提交桶表单
     if (bucketForm) {
         bucketForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -355,7 +364,7 @@ export const clientJS = `
             const appKey = bucketAppKey.value.trim();
             const bktName = bucketName.value.trim();
             const endpoint = bucketEndpoint.value.trim();
-            const idValue = internalId.value.trim();
+            const idValue = internalId.value.trim(); // 从隐藏字段取值
             const snippetId = bucketSnippetId.value.trim();
             const index = parseInt(editingIndex.value);
 
@@ -398,6 +407,7 @@ export const clientJS = `
         });
     }
 
+    // 导入 JSON
     if (importJsonBtn && snippetsJson) {
         importJsonBtn.addEventListener('click', () => {
             try {
@@ -419,6 +429,7 @@ export const clientJS = `
         });
     }
 
+    // 保存 JSON
     if (saveJsonBtn && snippetsJson) {
         saveJsonBtn.addEventListener('click', () => {
             try {
@@ -440,6 +451,7 @@ export const clientJS = `
         });
     }
 
+    // 桶连接验证
     if (verifyBucketBtn) {
         verifyBucketBtn.addEventListener('click', async () => {
             const keyID = bucketKeyID.value.trim();
@@ -573,7 +585,7 @@ export const clientJS = `
         }
     }
 
-    // 渲染 GitHub 令牌
+    // 渲染 GitHub 令牌（无复选框）
     function renderGithubTokens() {
         const container = safeGet('githubTokensList');
         if (!container) return;
@@ -595,6 +607,7 @@ export const clientJS = `
         }).join('');
         container.innerHTML = cardsHtml;
 
+        // 绑定卡片点击事件
         document.querySelectorAll('#githubTokensList .bucket-card').forEach(card => {
             card.addEventListener('click', (e) => {
                 if (!githubDeleteMode) return;
@@ -610,7 +623,7 @@ export const clientJS = `
         });
     }
 
-    // 渲染 Docker 令牌
+    // 渲染 Docker 令牌（无复选框）
     function renderDockerTokens() {
         const container = safeGet('dockerTokensList');
         if (!container) return;
@@ -823,7 +836,7 @@ export const clientJS = `
         });
     }
 
-    // 标签页切换
+    // 标签页切换（同时切换操作按钮）
     const tokenTabs = document.querySelectorAll('.token-tab');
     const githubPanel = safeGet('githubTokenPanel');
     const dockerPanel = safeGet('dockerTokenPanel');
@@ -942,6 +955,7 @@ export const clientJS = `
                 officialResultsList.appendChild(newLoadingItem);
             }
 
+            // 事件委托处理 Releases 按钮点击
             if (officialResultsList) {
                 officialResultsList.addEventListener('click', async (e) => {
                     const btn = e.target.closest('.btn-release');
@@ -949,7 +963,10 @@ export const clientJS = `
                     e.stopPropagation();
                     
                     const projectData = btn.dataset.project;
-                    if (!projectData) return;
+                    if (!projectData) {
+                        console.error('No project data found on Releases button');
+                        return;
+                    }
                     
                     try {
                         const proj = JSON.parse(projectData);
@@ -1068,7 +1085,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 11. 后台项目添加搜索（修改）
+    // 11. 后台项目添加搜索（修改部分）
     // ============================================================================
 
     const addModeToggle = safeGet('addModeToggle');
@@ -1078,10 +1095,6 @@ export const clientJS = `
     const searchResultArea = safeGet('searchResultArea');
     const searchResultList = safeGet('searchResultList');
     const searchResultsScroll = safeGet('searchResultsScroll');
-    const selectBucketModal = safeGet('selectBucketModal');
-    const closeSelectBucketModal = safeGet('closeSelectBucketModal');
-    const bucketCardGrid = safeGet('bucketCardGrid');
-    const confirmSelectBucketBtn = safeGet('confirmSelectBucketBtn');
 
     let addMode = 'GitHub';
     if (addModeToggle) {
@@ -1150,6 +1163,7 @@ export const clientJS = `
                     const owner = e.target.dataset.owner;
                     const repo = e.target.dataset.repo;
                     if (type === 'github') {
+                        // 打开新流程模态框
                         openBackupContentModal({ name, type, owner, repo });
                     } else {
                         alert('Docker 备份功能尚未实现');
@@ -1457,6 +1471,7 @@ export const clientJS = `
             // 收集选中的文件路径和资产信息
             const files = Array.from(selectedFiles);
             const assets = Array.from(selectedAssets).map(url => {
+                // 找到对应的 asset 信息
                 for (const release of backupReleases) {
                     const asset = release.assets.find(a => a.url === url);
                     if (asset) return { name: asset.name, url: asset.url, size: asset.size };
