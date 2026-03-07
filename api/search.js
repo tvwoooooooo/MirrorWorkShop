@@ -7,16 +7,16 @@ export async function handleSearch(request, env) {
   const query = url.searchParams.get('q');
   const type = url.searchParams.get('type') || 'github';
   const page = parseInt(url.searchParams.get('page')) || 1;
-  const perPage = 10;
+  const perPage = 30; // 提高每页数量，减少分页请求
   if (!query) {
     return new Response(JSON.stringify({ error: 'Missing query' }), { status: 400 });
   }
   try {
     let result;
     if (type === 'github') {
-      result = await searchGitHub(query, page, perPage, env); // 传入 env
+      result = await searchGitHub(query, page, perPage, env);
     } else {
-      result = await searchDockerHub(query, page, perPage);
+      result = await searchDockerHub(query, page, perPage, env); // 传入 env
     }
     return Response.json({
       items: result.items,
