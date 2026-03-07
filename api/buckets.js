@@ -22,7 +22,6 @@ export async function handleBuckets(request, env) {
 
     if (method === 'GET') {
         const { results } = await env.DB.prepare("SELECT * FROM buckets").all();
-        // 前端期望的字段映射
         const buckets = results.map(row => ({
             id: row.id,
             customName: row.custom_name,
@@ -36,7 +35,7 @@ export async function handleBuckets(request, env) {
         }));
         return Response.json(buckets);
     } else if (method === 'POST') {
-        const newBuckets = await request.json(); // 前端传整个桶数组
+        const newBuckets = await request.json();
         // 简单处理：清空表后重新插入（适合小数据量）
         await env.DB.prepare("DELETE FROM buckets").run();
         for (const b of newBuckets) {

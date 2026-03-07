@@ -14,7 +14,6 @@ export async function handleConfig(request, env) {
     const method = request.method;
 
     if (method === 'GET') {
-        // 默认配置
         const defaultConfig = {
             officialHostname: '',
             bucketHostname: '',
@@ -25,12 +24,10 @@ export async function handleConfig(request, env) {
         for (const row of results) {
             config[row.key] = JSON.parse(row.value);
         }
-        // 合并默认值
         const merged = { ...defaultConfig, ...config };
         return Response.json(merged);
     } else if (method === 'POST') {
-        const newConfig = await request.json(); // 完整配置对象
-        // 清空表后重新插入
+        const newConfig = await request.json();
         await env.DB.prepare("DELETE FROM config").run();
         for (const [key, value] of Object.entries(newConfig)) {
             await env.DB.prepare("INSERT INTO config (key, value) VALUES (?, ?)")

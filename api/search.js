@@ -16,7 +16,7 @@ export async function handleSearch(request, env) {
     if (type === 'github') {
       result = await searchGitHub(query, page, perPage, env);
     } else {
-      result = await searchDockerHub(query, page, perPage, env); // 传入 env
+      result = await searchDockerHub(query, page, perPage, env);
     }
     return Response.json({
       items: result.items,

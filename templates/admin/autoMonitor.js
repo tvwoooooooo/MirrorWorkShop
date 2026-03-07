@@ -1,7 +1,6 @@
 // templates/admin/autoMonitor.js
 export const autoMonitorHTML = `
 <style>
-/* 标签页与按钮同一行 */
 .token-header {
     display: flex;
     justify-content: space-between;
@@ -73,7 +72,6 @@ export const autoMonitorHTML = `
     border: none;
     border-radius: 0;
 }
-/* 卡片缩小 */
 .buckets-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
@@ -170,7 +168,7 @@ export const autoMonitorHTML = `
     </div>
 </div>
 
-<!-- GitHub 令牌模态框（不变） -->
+<!-- GitHub 令牌模态框 -->
 <div class="modal-overlay" id="githubTokenModal" style="display: none;">
     <div class="modal-content" style="max-width: 450px;">
         <div class="modal-header">
@@ -193,7 +191,7 @@ export const autoMonitorHTML = `
     </div>
 </div>
 
-<!-- Docker 令牌模态框（不变） -->
+<!-- Docker 令牌模态框 -->
 <div class="modal-overlay" id="dockerTokenModal" style="display: none;">
     <div class="modal-content" style="max-width: 450px;">
         <div class="modal-header">

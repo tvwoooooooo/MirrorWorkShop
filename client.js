@@ -40,7 +40,7 @@ export const clientJS = `
     let githubSelectedTokens = new Set();
     let dockerSelectedTokens = new Set();
 
-    // 新增：两步备份流程相关变量
+    // 两步备份流程相关变量
     let backupProjectData = null;
     let backupFileTree = [];
     let backupReleases = [];
@@ -194,7 +194,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 6. 桶管理（添加、编辑、删除模式、导入/保存JSON、验证连接）
+    // 6. 桶管理
     // ============================================================================
 
     const bucketsList = safeGet('bucketsList');
@@ -961,7 +961,7 @@ export const clientJS = `
                                 }));
                             }
                         } else {
-                            const url = \`https://hub.docker.com/v2/repositories/library/\${proj.repo}/tags/?page_size=20\`;
+                            const url = \`https://hub.docker.com/v2/repositories/\${proj.owner}/\${proj.repo}/tags/?page_size=20\`;
                             const res = await fetch(url, {
                                 headers: { 'Accept': 'application/json', 'User-Agent': 'B2-Mirror-Worker' }
                             });
@@ -1057,7 +1057,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 11. 后台项目添加搜索（修改部分）
+    // 11. 后台项目添加搜索
     // ============================================================================
 
     const addModeToggle = safeGet('addModeToggle');
@@ -1099,7 +1099,7 @@ export const clientJS = `
             const data = await res.json();
             const newItems = data.items;
             adminTotal = data.total;
-            adminHasMore = newItems.length === 10 && (page * 10) < adminTotal;
+            adminHasMore = newItems.length === 30 && (page * 30) < adminTotal;
 
             if (page === 1 && searchResultList) searchResultList.innerHTML = '';
 
@@ -1265,7 +1265,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 12. 新增：两步备份流程函数
+    // 12. 两步备份流程函数
     // ============================================================================
 
     const backupModal = safeGet('backupContentModal');
