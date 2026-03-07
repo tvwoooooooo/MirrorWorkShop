@@ -18,24 +18,17 @@ export async function handleSearch(request, env) {
     if (type === 'github') {
       result = await searchGitHub(query, page, perPage, env);
     } else {
-      result = await searchDockerHub(query, page, 30);
+      result = await searchDockerHub(query, page, 30, env); // 传入 env
     }
     
-    // 返回结果时带上 _debug 字段（如果有）
     return Response.json({
       items: result.items || [],
       total: result.total || 0,
       page,
-      perPage: type === 'github' ? perPage : 30,
-      _debug: result._debug || null
+      perPage: type === 'github' ? perPage : 30
     });
   } catch (error) {
     console.error('Search API error:', error);
-    return new Response(JSON.stringify({ 
-      error: error.message, 
-      items: [], 
-      total: 0,
-      _debug: { exception: error.message }
-    }), { status: 500 });
+    return new Response(JSON.stringify({ error: error.message, items: [], total: 0 }), { status: 500 });
   }
 }
