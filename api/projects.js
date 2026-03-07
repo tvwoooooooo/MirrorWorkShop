@@ -1,6 +1,7 @@
 // api/projects.js
 import { getRepoFileTree } from '../lib/github.js';
 import { fetchWithRetry } from '../lib/github.js';
+import { getDockerTags } from '../lib/docker.js';
 import { createMasterTask } from '../lib/taskManager.js';
 
 /**
@@ -120,7 +121,62 @@ export async function handleRepoReleases(request, env) {
 }
 
 /**
- * 处理详细备份任务（包含用户选择的文件和资产）
+ * 获取 Docker 仓库的 tags 列表
+ */
+export async function handleDockerTags(request, env) {
+    const url = new URL(request.url);
+    const owner = url.searchParams.get('owner');
+    const repo = url.searchParams.get('repo');
+    if (!owner || !repo) {
+        return Response.json({ error: 'Missing owner or repo' }, { status: 400 });
+    }
+    try {
+        const tags = await getDockerTags(owner, repo);
+        return Response.json(tags);
+    } catch (error) {
+        return Response.json({ error: error.message }, { status: 500 });
+    }
+}
+
+/**
+ * 处理 Docker 详细备份任务
+ */
+export async function handleDetailedDockerProject(request, env) {
+    const { type, owner, repo, bucketId, tags } = await request.json();
+    if (type !== 'docker') {
+        return Response.json({ error: 'Invalid type' }, { status: 400 });
+    }
+    if (!owner || !repo || !bucketId || !tags || !Array.isArray(tags)) {
+        return Response.json({ error: 'Missing required fields' }, { status: 400 });
+    }
+
+    const bucket = await env.DB.prepare("SELECT id FROM buckets WHERE id = ?").bind(bucketId).first();
+    if (!bucket) {
+        return Response.json({ error: '指定的桶不存在' }, { status: 400 });
+    }
+
+    const taskId = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+
+    await env.TASKS_QUEUE.send(JSON.stringify({
+        type: 'docker',
+        taskId,
+        owner,
+        repo,
+        bucketId,
+        tags
+    }));
+
+    // 记录初始状态到 master_tasks
+    await env.DB.prepare(`
+        INSERT INTO master_tasks (task_id, owner, repo, bucket_id, status, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+    `).bind(taskId, owner, repo, bucketId, 'queued', Date.now()).run();
+
+    return Response.json({ success: true, taskId, message: 'Docker 备份任务已提交' });
+}
+
+/**
+ * 处理详细备份任务（GitHub，包含用户选择的文件和资产）
  */
 export async function handleDetailedProject(request, env) {
     await initProjectsTable(env);
