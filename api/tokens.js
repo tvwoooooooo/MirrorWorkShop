@@ -1,7 +1,9 @@
 // api/tokens.js
+import { ensureTokensTable } from '../lib/d1.js';
 
 // 处理 GitHub 令牌
 export async function handleGithubTokens(request, env) {
+    await ensureTokensTable(env);
     const method = request.method;
 
     if (method === 'GET') {
@@ -19,6 +21,7 @@ export async function handleGithubTokens(request, env) {
         if (!name || !token) {
             return Response.json({ error: 'Name and token required' }, { status: 400 });
         }
+        // round_used 使用默认值 -1
         await env.DB.prepare(
             "INSERT INTO tokens (type, name, token, created_at) VALUES (?, ?, ?, ?)"
         ).bind('github', name, token, Date.now()).run();
@@ -44,6 +47,7 @@ export async function handleGithubTokens(request, env) {
 
 // 处理 Docker 令牌（与 GitHub 相同，type='docker'）
 export async function handleDockerTokens(request, env) {
+    await ensureTokensTable(env);
     const method = request.method;
 
     if (method === 'GET') {

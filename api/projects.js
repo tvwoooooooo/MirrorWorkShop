@@ -2,29 +2,13 @@
 import { getRepoFileTree } from '../lib/github.js';
 import { fetchWithRetry } from '../lib/github.js';
 import { createMasterTask } from '../lib/taskManager.js';
-
-/**
- * 初始化 projects 表（如果不存在）
- */
-async function initProjectsTable(env) {
-    await env.DB.prepare(`
-        CREATE TABLE IF NOT EXISTS projects (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            type TEXT NOT NULL,
-            name TEXT NOT NULL,
-            homepage TEXT NOT NULL,
-            last_update TEXT,
-            versions TEXT,
-            UNIQUE(type, name)
-        )
-    `).run();
-}
+import { ensureProjectsTable } from '../lib/d1.js';
 
 /**
  * 获取已备份的项目列表（用于首页展示）
  */
 export async function handleProjects(type, env) {
-    await initProjectsTable(env);
+    await ensureProjectsTable(env);
     const { results } = await env.DB.prepare(
         "SELECT name, homepage, last_update, versions FROM projects WHERE type = ?"
     ).bind(type).all();
@@ -41,7 +25,7 @@ export async function handleProjects(type, env) {
  * 旧版简单备份（全量备份，保留兼容）
  */
 export async function handleProject(request, env) {
-    await initProjectsTable(env);
+    await ensureProjectsTable(env);
     const { type, name, bucketId } = await request.json();
 
     if (type !== 'github') {
@@ -123,7 +107,7 @@ export async function handleRepoReleases(request, env) {
  * 处理详细备份任务（包含用户选择的文件和资产）
  */
 export async function handleDetailedProject(request, env) {
-    await initProjectsTable(env);
+    await ensureProjectsTable(env);
     const { type, owner, repo, bucketId, files, assets } = await request.json();
 
     if (type !== 'github') {

@@ -1,16 +1,8 @@
 // api/config.js
-
-async function initConfigTable(env) {
-    await env.DB.prepare(`
-        CREATE TABLE IF NOT EXISTS config (
-            key TEXT PRIMARY KEY,
-            value TEXT NOT NULL
-        )
-    `).run();
-}
+import { ensureConfigTable } from '../lib/d1.js';
 
 export async function handleConfig(request, env) {
-    await initConfigTable(env);
+    await ensureConfigTable(env);
     const method = request.method;
 
     if (method === 'GET') {

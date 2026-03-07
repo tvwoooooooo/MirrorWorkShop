@@ -1,23 +1,8 @@
 // api/buckets.js
-
-async function initBucketsTable(env) {
-    await env.DB.prepare(`
-        CREATE TABLE IF NOT EXISTS buckets (
-            id TEXT PRIMARY KEY,
-            custom_name TEXT NOT NULL,
-            key_id TEXT NOT NULL,
-            application_key TEXT NOT NULL,
-            bucket_name TEXT NOT NULL,
-            endpoint TEXT NOT NULL,
-            snippet_id TEXT,
-            usage REAL DEFAULT 0,
-            total REAL DEFAULT 10
-        )
-    `).run();
-}
+import { ensureBucketsTable } from '../lib/d1.js';
 
 export async function handleBuckets(request, env) {
-    await initBucketsTable(env);
+    await ensureBucketsTable(env);
     const method = request.method;
 
     if (method === 'GET') {
