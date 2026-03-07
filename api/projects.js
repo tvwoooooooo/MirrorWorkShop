@@ -156,7 +156,7 @@ export async function handleDockerTags(request, env) {
         return Response.json({ error: 'Missing namespace or repo' }, { status: 400 });
     }
     try {
-        const tags = await getImageTags(namespace, repo);
+        const tags = await getImageTags(namespace, repo, env);
         return Response.json(tags);
     } catch (error) {
         return Response.json({ error: error.message }, { status: 500 });
