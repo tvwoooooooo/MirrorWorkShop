@@ -1,7 +1,31 @@
 // queue.js
-import { processBatch, processAsset } from './lib/batchProcessor.js';
+import { processBatch, processAsset, getB2Client, uploadFile } from './lib/batchProcessor.js';
 import { getRepoFileTree } from './lib/github.js';
 import { createMasterTask, updateMasterTaskProgress, completeMasterTask, getMasterTask, getActiveTasks } from './lib/taskManager.js';
+
+async function processDockerBackup(task, env) {
+  const { taskId, owner, repo, bucketId, tags } = task;
+  const date = new Date().toISOString().split('T')[0];
+  const data = {
+    repository: `${owner}/${repo}`,
+    tags,
+    backupDate: date,
+    timestamp: Date.now()
+  };
+  const jsonStr = JSON.stringify(data, null, 2);
+  const blob = new Blob([jsonStr], { type: 'application/json' });
+  const stream = blob.stream();
+  const contentLength = blob.size;
+
+  const { client, bucket } = await getB2Client(bucketId, env);
+  const key = `${owner}/${repo}/tags-${date}.json`;
+  await uploadFile(client, bucket, key, stream, contentLength);
+
+  // 更新主任务状态为完成
+  await env.DB.prepare(`
+    UPDATE master_tasks SET status = ?, completed_at = ? WHERE task_id = ?
+  `).bind('completed', Date.now(), taskId).run();
+}
 
 export async function queueHandler(batch, env, ctx) {
   for (const message of batch.messages) {
@@ -11,16 +35,12 @@ export async function queueHandler(batch, env, ctx) {
       try {
         const { taskId, owner, repo, bucketId, files, assets } = task;
         
-        // 如果没有提供 files，则获取整个文件树（兼容旧版）
         const fileList = files || await getRepoFileTree(owner, repo, env);
-        
-        // 使用 D1 的 createMasterTask（已包含队列发送）
         await createMasterTask(env, taskId, owner, repo, bucketId, fileList, assets || []);
         
         message.ack();
       } catch (error) {
         console.error('Master task failed:', error);
-        // 记录失败到 D1
         await env.DB.prepare(`
             INSERT OR REPLACE INTO master_tasks (task_id, owner, repo, bucket_id, status, created_at, completed_at)
             VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -49,6 +69,14 @@ export async function queueHandler(batch, env, ctx) {
         message.ack();
       } catch (error) {
         console.error('Asset task failed', error);
+        message.retry();
+      }
+    } else if (task.type === 'docker') {
+      try {
+        await processDockerBackup(task, env);
+        message.ack();
+      } catch (error) {
+        console.error('Docker backup failed', error);
         message.retry();
       }
     } else {
