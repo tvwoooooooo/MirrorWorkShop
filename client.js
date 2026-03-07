@@ -893,7 +893,6 @@ export const clientJS = `
 
             if (page === 1) {
                 if (officialResultsList) officialResultsList.innerHTML = '';
-                // 如果第一页没有结果，显示空状态
                 if (newItems.length === 0) {
                     const emptyDiv = document.createElement('div');
                     emptyDiv.className = 'empty-state';
@@ -910,9 +909,11 @@ export const clientJS = `
             newItems.forEach(item => {
                 const isGitHub = item.type === 'github';
                 const bgIconClass = isGitHub ? 'fab fa-github' : 'fab fa-docker';
-                const releaseButton = (item.has_releases || item.has_tags) ? `<button class="btn-icon btn-release" data-project='${JSON.stringify(item)}'><i class="fas fa-tag"></i> Tags</button>` : '';
+                const releaseButton = (item.has_releases || item.has_tags) 
+                    ? `<button class="btn-icon btn-release" data-project='${JSON.stringify(item).replace(/'/g, "&apos;")}'><i class="fas fa-tag"></i> Tags</button>` 
+                    : '';
                 const itemHtml = `
-                    <div class="official-result-item" data-repo='${JSON.stringify(item)}'>
+                    <div class="official-result-item" data-repo='${JSON.stringify(item).replace(/'/g, "&apos;")}'>
                         <div class="card-bg-icon"><i class="${bgIconClass}"></i></div>
                         <div class="official-item-header">
                             <a href="${item.homepage}" target="_blank" class="official-item-name">${item.fullName || item.name}</a>
@@ -949,10 +950,7 @@ export const clientJS = `
                     e.stopPropagation();
                     
                     const projectData = btn.dataset.project;
-                    if (!projectData) {
-                        console.error('No project data found on Releases button');
-                        return;
-                    }
+                    if (!projectData) return;
                     
                     try {
                         const proj = JSON.parse(projectData);
@@ -1035,7 +1033,7 @@ export const clientJS = `
                         const isGitHub = type === 'github';
                         const bgIconClass = isGitHub ? 'fab fa-github' : 'fab fa-docker';
                         const hasReleases = p.versions && p.versions.some(v => v.releases && v.releases.length > 0);
-                        const releaseButton = hasReleases ? `<button class="btn-icon btn-release" data-project='${JSON.stringify(p)}'><i class="fas fa-tag"></i> Tags</button>` : '';
+                        const releaseButton = hasReleases ? `<button class="btn-icon btn-release" data-project='${JSON.stringify(p).replace(/'/g, "&apos;")}'><i class="fas fa-tag"></i> Tags</button>` : '';
                         return `
                             <div class="official-result-item">
                                 <div class="card-bg-icon"><i class="${bgIconClass}"></i></div>
@@ -1117,7 +1115,6 @@ export const clientJS = `
 
             if (page === 1) {
                 if (searchResultList) searchResultList.innerHTML = '';
-                // 如果第一页没有结果，显示空状态
                 if (newItems.length === 0) {
                     const emptyDiv = document.createElement('div');
                     emptyDiv.className = 'empty-state';
@@ -1333,7 +1330,6 @@ export const clientJS = `
             // 显示文件树和 releases
             document.querySelector('.file-tree')?.parentElement?.classList.remove('hide');
             document.querySelector('.releases-container')?.parentElement?.classList.remove('hide');
-            // 确保文件树标题正确
             const fileHeader = document.querySelector('#backupStep1 h4:first-of-type');
             if (fileHeader) fileHeader.innerText = '代码文件';
             try {
@@ -1357,7 +1353,6 @@ export const clientJS = `
             // Docker 项目：只显示 tags
             document.querySelector('.file-tree')?.parentElement?.classList.add('hide');
             document.querySelector('.releases-container')?.parentElement?.classList.remove('hide');
-            // 修改标题
             const fileHeader = document.querySelector('#backupStep1 h4:first-of-type');
             if (fileHeader) fileHeader.innerText = '镜像标签';
             try {
