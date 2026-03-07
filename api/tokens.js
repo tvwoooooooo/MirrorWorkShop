@@ -1,6 +1,6 @@
 // api/tokens.js
 
-// 初始化表（如果不存在）
+// 初始化 tokens 表（如果不存在）
 async function initTokensTable(env) {
     await env.DB.prepare(`
         CREATE TABLE IF NOT EXISTS tokens (
@@ -22,9 +22,8 @@ export async function handleGithubTokens(request, env) {
 
     if (method === 'GET') {
         const { results } = await env.DB.prepare(
-            "SELECT id, name, usage_count as usageCount FROM tokens WHERE type = ?"
+            "SELECT id, name, usage_count as usageCount FROM tokens WHERE type = ? ORDER BY id"
         ).bind('github').all();
-        // 添加索引字段（用于前端删除）
         const safeTokens = results.map((row, index) => ({
             index,
             name: row.name,
@@ -46,7 +45,6 @@ export async function handleGithubTokens(request, env) {
         if (isNaN(index) || index < 0) {
             return Response.json({ error: 'Invalid index' }, { status: 400 });
         }
-        // 先获取所有 ID（按顺序）
         const { results } = await env.DB.prepare(
             "SELECT id FROM tokens WHERE type = ? ORDER BY id"
         ).bind('github').all();
@@ -60,14 +58,14 @@ export async function handleGithubTokens(request, env) {
     return new Response('Method not allowed', { status: 405 });
 }
 
-// 处理 Docker 令牌（使用相同的表，type='docker'）
+// 处理 Docker 令牌（与 GitHub 类似，但 type='docker'）
 export async function handleDockerTokens(request, env) {
     await initTokensTable(env);
     const method = request.method;
 
     if (method === 'GET') {
         const { results } = await env.DB.prepare(
-            "SELECT id, name, usage_count as usageCount FROM tokens WHERE type = ?"
+            "SELECT id, name, usage_count as usageCount FROM tokens WHERE type = ? ORDER BY id"
         ).bind('docker').all();
         const safeTokens = results.map((row, index) => ({
             index,
