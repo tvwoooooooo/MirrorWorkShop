@@ -895,8 +895,14 @@ export const clientJS = `
             officialTotal = data.total;
             officialHasMore = newItems.length === 10 && (page * 10) < officialTotal;
 
-            if (page === 1 && officialResultsList) officialResultsList.innerHTML = '';
-            else document.getElementById('official-loading-item')?.remove();
+            if (page === 1 && officialResultsList) {
+                officialResultsList.innerHTML = '';
+                if (newItems.length === 0) {
+                    officialResultsList.innerHTML = '<div class="empty-state">没有找到相关项目</div>';
+                }
+            } else {
+                document.getElementById('official-loading-item')?.remove();
+            }
 
             newItems.forEach(item => {
                 const isGitHub = item.type === 'github';
@@ -1047,7 +1053,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 11. 后台项目添加搜索（修改支持 Docker）
+    // 11. 后台项目添加搜索（修改支持 Docker，增加空结果提示）
     // ============================================================================
 
     const addModeToggle = safeGet('addModeToggle');
@@ -1091,7 +1097,14 @@ export const clientJS = `
             adminTotal = data.total;
             adminHasMore = newItems.length === 10 && (page * 10) < adminTotal;
 
-            if (page === 1 && searchResultList) searchResultList.innerHTML = '';
+            if (page === 1 && searchResultList) {
+                searchResultList.innerHTML = '';
+                if (newItems.length === 0) {
+                    searchResultList.innerHTML = '<div class="empty-state">没有找到相关项目</div>';
+                }
+            } else {
+                document.getElementById('admin-loading-item')?.remove();
+            }
 
             newItems.forEach(item => {
                 const isGitHub = item.type === 'github';
