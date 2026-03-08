@@ -47,6 +47,10 @@ export const clientJS = `
     let selectedFiles = new Set();
     let selectedAssets = new Set();
 
+    // 日志挂件相关
+    let globalLogs = [];
+    let newLogCount = 0;
+
     // ============================================================================
     // 3. 数据加载与更新
     // ============================================================================
@@ -872,6 +876,10 @@ export const clientJS = `
 
     async function loadOfficialResults(query, type, page) {
         if (officialLoading) return;
+
+        if (page === 1) {
+            clearLogs(); // 新的搜索开始时清空日志
+        }
         
         const oldLoading = document.getElementById('official-loading-item');
         if (oldLoading) oldLoading.remove();
@@ -888,16 +896,7 @@ export const clientJS = `
             if (!res.ok) throw new Error('搜索失败');
             const data = await res.json();
             
-            // Log display logic
-            const logContainerWrapper = safeGet('log-container-wrapper');
-            const logContainer = safeGet('log-container');
-            if (data.logs && data.logs.length > 0) {
-                if (logContainerWrapper) logContainerWrapper.style.display = 'block';
-                if (logContainer) logContainer.textContent = data.logs.join('\\n');
-            } else {
-                if (logContainerWrapper) logContainerWrapper.style.display = 'none';
-                if (logContainer) logContainer.textContent = '';
-            }
+            if (data.logs) updateLogView(data.logs);
 
             const newItems = data.items;
             officialTotal = data.total;
@@ -1950,8 +1949,79 @@ export const clientJS = `
         else if (e.target.closest('.btn-stream')) alert('流式代理下载 (流量经过B2)');
     });
 
+
     // ============================================================================
-    // 19. 初始化
+    // 19. 日志挂件
+    // ============================================================================
+    const logFab = safeGet('log-widget-fab');
+    const logBadge = safeGet('log-widget-badge');
+    const logModal = safeGet('log-modal-overlay');
+    const closeLogModalBtn = safeGet('closeLogModal');
+    const logContainer = safeGet('log-modal-container');
+
+    function updateLogView(logs) {
+        if (!logs || logs.length === 0) return;
+        
+        const isScrolledToBottom = logContainer.scrollHeight - logContainer.clientHeight <= logContainer.scrollTop + 5;
+
+        // 只追加新的、不存在的日志
+        const newLogMessages = logs.filter(log => !globalLogs.includes(log));
+        if (newLogMessages.length > 0) {
+            globalLogs.push(...newLogMessages);
+        }
+        // 始终用最新的全局日志更新视图
+        if(logContainer) logContainer.textContent = globalLogs.join('\\n');
+
+        if (logModal.style.display !== 'flex' && newLogMessages.length > 0) {
+            newLogCount += newLogMessages.length;
+            if (logBadge) {
+                logBadge.textContent = newLogCount > 99 ? '99+' : newLogCount;
+                logBadge.style.display = 'flex';
+            }
+        }
+        
+        if (isScrolledToBottom) {
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+    }
+    
+    // 清空日志
+    function clearLogs() {
+        globalLogs = [];
+        newLogCount = 0;
+        if (logContainer) logContainer.textContent = '';
+        if (logBadge) logBadge.style.display = 'none';
+    }
+
+
+    if (logFab) {
+        logFab.addEventListener('click', () => {
+            if (logModal) logModal.style.display = 'flex';
+            newLogCount = 0;
+            if (logBadge) {
+                logBadge.style.display = 'none';
+                logBadge.textContent = '';
+            }
+            if (logContainer) {
+                 logContainer.scrollTop = logContainer.scrollHeight;
+            }
+        });
+    }
+
+    if (closeLogModalBtn) {
+        closeLogModalBtn.addEventListener('click', () => {
+            if (logModal) logModal.style.display = 'none';
+        });
+    }
+    
+    if (logModal) {
+        logModal.addEventListener('click', (e) => {
+            if (e.target === logModal) logModal.style.display = 'none';
+        });
+    }
+
+    // ============================================================================
+    // 20. 初始化
     // ============================================================================
 
     await loadData();

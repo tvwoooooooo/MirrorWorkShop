@@ -42,6 +42,22 @@ export function renderFullPage() {
         ${customProjectModalHTML}
     </div>
     ${footerHTML}
+
+    <!-- Log Widget -->
+    <div id="log-widget-fab" class="log-widget-fab">
+        <i class="fas fa-file-alt"></i>
+        <span id="log-widget-badge" class="log-widget-badge" style="display: none;"></span>
+    </div>
+    <div id="log-modal-overlay" class="modal-overlay" style="display: none;">
+        <div id="log-modal-content" class="modal-content" style="max-width: 800px; max-height: 80vh;">
+            <div class="modal-header">
+                <h3>Backend Logs</h3>
+                <div class="modal-close" id="closeLogModal"><i class="fas fa-times"></i></div>
+            </div>
+            <pre id="log-modal-container" style="color: #d4d4d4; background-color: #1e1e1e; padding: 1rem; border-radius: 8px; white-space: pre-wrap; word-wrap: break-word; font-family: monospace; max-height: 60vh; overflow-y: auto;"></pre>
+        </div>
+    </div>
+
     <script>${clientJS}</script>
 </body>
 </html>`;
