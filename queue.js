@@ -1,5 +1,5 @@
 // queue.js
-import { processBatch, processAsset, processDockerLayer } from './lib/batchProcessor.js';
+import { processBatch, processAsset } from './lib/batchProcessor.js';
 import { getRepoFileTree } from './lib/github.js';
 import { createMasterTask, updateMasterTaskProgress, completeMasterTask, getMasterTask, getActiveTasks } from './lib/taskManager.js';
 
@@ -14,11 +14,13 @@ export async function queueHandler(batch, env, ctx) {
         // 如果没有提供 files，则获取整个文件树（兼容旧版）
         const fileList = files || await getRepoFileTree(owner, repo, env);
         
+        // 使用 D1 的 createMasterTask（已包含队列发送）
         await createMasterTask(env, taskId, owner, repo, bucketId, fileList, assets || []);
         
         message.ack();
       } catch (error) {
         console.error('Master task failed:', error);
+        // 记录失败到 D1
         await env.DB.prepare(`
             INSERT OR REPLACE INTO master_tasks (task_id, owner, repo, bucket_id, status, created_at, completed_at)
             VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -47,15 +49,6 @@ export async function queueHandler(batch, env, ctx) {
         message.ack();
       } catch (error) {
         console.error('Asset task failed', error);
-        message.retry();
-      }
-    } else if (task.type === 'docker_layer') {
-      // 处理 Docker 层上传
-      try {
-        await processDockerLayer(task, env);
-        message.ack();
-      } catch (error) {
-        console.error('Docker layer task failed', error);
         message.retry();
       }
     } else {

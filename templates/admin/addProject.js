@@ -1,7 +1,7 @@
 // templates/admin/addProject.js
 export const addProjectHTML = `
 <style>
-/* 两步选择模态框样式（保持不变） */
+/* 两步选择模态框样式 */
 .backup-modal-content {
     max-width: 800px;
     width: 90%;
@@ -144,16 +144,13 @@ export const addProjectHTML = `
             <div id="queueTaskList"></div>
         </div>
     </div>
-    <div class="search-box" style="max-width: 600px; display: flex;">
+    <div class="search-box" style="max-width: 600px;">
         <button class="mode-toggle" id="addModeToggle">
             <span id="addModeText">GitHub</span>
             <i class="fas fa-chevron-down"></i>
         </button>
         <input type="text" id="searchProjectInput" placeholder="搜索项目名称...">
         <button class="search-btn" id="searchProjectBtn"><i class="fas fa-search"></i></button>
-        <button class="btn-icon" id="toggleBackupMode" title="切换为直接备份模式">
-            <i class="fas fa-exchange-alt"></i>
-        </button>
     </div>
     <div id="searchResultArea" class="search-result-area hide">
         <h3 style="font-size:1rem; margin-bottom:1rem;">搜索结果：</h3>

@@ -47,9 +47,6 @@ export const clientJS = `
     let selectedFiles = new Set();
     let selectedAssets = new Set();
 
-    // 直接备份模式开关
-    let directMode = false;
-
     // ============================================================================
     // 3. 数据加载与更新
     // ============================================================================
@@ -1060,7 +1057,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 11. 后台项目添加搜索（修改部分）
+    // 11. 后台项目添加搜索
     // ============================================================================
 
     const addModeToggle = safeGet('addModeToggle');
@@ -1074,30 +1071,12 @@ export const clientJS = `
     const closeSelectBucketModal = safeGet('closeSelectBucketModal');
     const bucketCardGrid = safeGet('bucketCardGrid');
     const confirmSelectBucketBtn = safeGet('confirmSelectBucketBtn');
-    const toggleBackupMode = safeGet('toggleBackupMode');
 
     let addMode = 'GitHub';
     if (addModeToggle) {
         addModeToggle.addEventListener('click', () => {
             addMode = addMode === 'GitHub' ? 'Docker' : 'GitHub';
             if (addModeText) addModeText.innerText = addMode;
-        });
-    }
-
-    // 切换直接备份模式
-    if (toggleBackupMode) {
-        toggleBackupMode.addEventListener('click', () => {
-            directMode = !directMode;
-            const searchInput = safeGet('searchProjectInput');
-            if (directMode) {
-                toggleBackupMode.classList.add('active');
-                toggleBackupMode.title = '切换为搜索模式';
-                searchInput.placeholder = '输入项目全名 (owner/repo)';
-            } else {
-                toggleBackupMode.classList.remove('active');
-                toggleBackupMode.title = '切换为直接备份模式';
-                searchInput.placeholder = '搜索项目名称...';
-            }
         });
     }
 
@@ -1163,8 +1142,7 @@ export const clientJS = `
                     if (type === 'github') {
                         openBackupContentModal({ name, type, owner, repo });
                     } else {
-                        // Docker 搜索模式暂不支持
-                        alert('Docker 备份请使用直接备份模式（点击切换按钮后输入 owner/repo）');
+                        alert('Docker 备份功能尚未实现');
                     }
                 });
             });
@@ -1200,34 +1178,13 @@ export const clientJS = `
     if (searchProjectBtn) {
         searchProjectBtn.addEventListener('click', async () => {
             const query = searchProjectInput ? searchProjectInput.value.trim() : '';
-            if (!query) { alert('请输入搜索关键词或项目全名'); return; }
-            if (directMode) {
-                // 直接备份模式
-                const parts = query.split('/');
-                if (parts.length !== 2) {
-                    alert('请输入正确的项目全名，格式为 owner/repo');
-                    return;
-                }
-                const [owner, repo] = parts;
-                const type = addMode === 'GitHub' ? 'github' : 'docker';
-                if (type === 'github') {
-                    // GitHub 打开备份内容选择模态框
-                    openBackupContentModal({ name: query, type, owner, repo });
-                } else {
-                    // Docker 暂时保留原有：弹出标签输入，然后选择桶
-                    const tag = prompt('请输入要备份的标签（默认为 latest）:', 'latest') || 'latest';
-                    currentProjectToBackup = { type, owner, repo, name: query, tag: tag.trim() };
-                    openSelectBucketModal();
-                }
-            } else {
-                // 搜索模式
-                adminQuery = query;
-                adminType = addMode === 'GitHub' ? 'github' : 'docker';
-                adminCurrentPage = 1;
-                adminHasMore = true;
-                if (searchResultArea) searchResultArea.classList.remove('hide');
-                await loadAdminResults(adminQuery, adminType, 1);
-            }
+            if (!query) { alert('请输入搜索关键词'); return; }
+            adminQuery = query;
+            adminType = addMode === 'GitHub' ? 'github' : 'docker';
+            adminCurrentPage = 1;
+            adminHasMore = true;
+            if (searchResultArea) searchResultArea.classList.remove('hide');
+            await loadAdminResults(adminQuery, adminType, 1);
         });
     }
 
@@ -1290,45 +1247,14 @@ export const clientJS = `
                 alert('项目信息丢失');
                 return;
             }
-            let payload;
-            if (project.type === 'github') {
-                // GitHub 在 directMode 下已通过模态框处理，此处不应再执行
-                if (directMode) {
-                    alert('请使用备份内容选择界面');
-                    return;
-                } else {
-                    // 搜索模式（旧版备份）
-                    payload = {
-                        type: project.type,
-                        name: project.name,
-                        bucketId
-                    };
-                }
-            } else if (project.type === 'docker') {
-                // Docker 备份
-                if (directMode) {
-                    const tag = project.tag; // 从之前保存的 project 中获取
-                    payload = {
-                        type: 'docker',
-                        owner: project.owner,
-                        repo: project.repo,
-                        tag: tag,
-                        bucketId
-                    };
-                } else {
-                    alert('Docker 备份暂不支持搜索模式');
-                    return;
-                }
-            }
-
-            const res = await fetch(apiBase + '/project/detailed', {
+            const res = await fetch(apiBase + '/project', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                body: JSON.stringify({ type: project.type, name: project.name, bucketId })
             });
             const result = await res.json();
             if (result.success) {
-                alert('备份任务已提交，任务ID: ' + result.taskId);
+                alert(\`完整备份任务已提交，任务ID: \${result.taskId}\`);
                 pollTaskStatus(result.taskId);
                 selectBucketModal.style.display = 'none';
                 currentProjectToBackup = null;
@@ -1339,7 +1265,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 12. 两步备份流程函数（保持不变）
+    // 12. 两步备份流程函数
     // ============================================================================
 
     const backupModal = safeGet('backupContentModal');
@@ -1381,21 +1307,21 @@ export const clientJS = `
         if (selectedReleasesCount) selectedReleasesCount.innerText = '0 个版本';
 
         try {
-            const res = await fetch('/api/repo-tree?owner=' + project.owner + '&repo=' + project.repo);
+            const res = await fetch(\`/api/repo-tree?owner=\${project.owner}&repo=\${project.repo}\`);
             if (!res.ok) throw new Error('获取文件树失败');
             backupFileTree = await res.json();
             renderFileTree();
         } catch (e) {
-            fileTreeContainer.innerHTML = '<div class="empty-state">加载失败：' + e.message + '</div>';
+            fileTreeContainer.innerHTML = \`<div class="empty-state">加载失败：\${e.message}</div>\`;
         }
 
         try {
-            const res = await fetch('/api/repo-releases?owner=' + project.owner + '&repo=' + project.repo);
+            const res = await fetch(\`/api/repo-releases?owner=\${project.owner}&repo=\${project.repo}\`);
             if (!res.ok) throw new Error('获取 Releases 失败');
             backupReleases = await res.json();
             renderReleases();
         } catch (e) {
-            releasesContainer.innerHTML = '<div class="empty-state">加载失败：' + e.message + '</div>';
+            releasesContainer.innerHTML = \`<div class="empty-state">加载失败：\${e.message}</div>\`;
         }
     }
 
@@ -1428,7 +1354,7 @@ export const clientJS = `
         });
         const count = selectedFiles.size;
         if (selectedFilesCount) {
-            selectedFilesCount.innerText = count === backupFileTree.length ? '全部文件' : (count + ' 个文件');
+            selectedFilesCount.innerText = count === backupFileTree.length ? '全部文件' : \`\${count} 个文件\`;
         }
         if (selectAllFiles) {
             selectAllFiles.checked = count === backupFileTree.length;
@@ -1500,7 +1426,7 @@ export const clientJS = `
             selectedAssets.add(cb.dataset.assetUrl);
         });
         const count = selectedAssets.size;
-        if (selectedReleasesCount) selectedReleasesCount.innerText = count + ' 个文件';
+        if (selectedReleasesCount) selectedReleasesCount.innerText = \`\${count} 个文件\`;
 
         backupReleases.forEach((release, idx) => {
             const releaseCheckbox = document.querySelector(\`.release-checkbox[data-release-idx="\${idx}"]\`);
@@ -1613,7 +1539,7 @@ export const clientJS = `
                 });
                 const result = await res.json();
                 if (result.success) {
-                    alert('备份任务已提交，任务ID: ' + result.taskId);
+                    alert(\`备份任务已提交，任务ID: \${result.taskId}\`);
                     pollTaskStatus(result.taskId);
                     backupModal.style.display = 'none';
                 } else {
@@ -1675,7 +1601,7 @@ export const clientJS = `
                     const first = tasks[0];
                     queueFileCount.style.display = 'none';
                     queueFileName.style.display = 'inline';
-                    queueFileName.innerText = '正在上传: ' + first.name;
+                    queueFileName.innerText = \`正在上传: \${first.name}\`;
                 }
             }
 
@@ -1741,10 +1667,10 @@ export const clientJS = `
     function createProjectCard(proj, type) {
         const card = document.createElement('div'); card.className = 'project-card';
         const isGitHub = type === 'github';
-        const displayName = isGitHub ? proj.name : proj.name + (proj.versions[0].tags ? ':' + proj.versions[0].tags[0] : '');
+        const displayName = isGitHub ? proj.name : proj.name + (proj.versions[0].tags ? \`:\${proj.versions[0].tags[0]}\` : '');
         const hasAnyReleases = proj.versions.some(v => v.releases && v.releases.length > 0);
-        const releasesButton = hasAnyReleases ? '<div class="releases-group"><button class="btn-icon btn-release"><i class="fas fa-tag"></i> Releases</button></div>' : '';
-        const officialButton = '<a href="' + proj.homepage + '" target="_blank" class="official-link-btn" title="访问官网"><i class="fas fa-external-link-alt"></i></a>';
+        const releasesButton = hasAnyReleases ? \`<div class="releases-group"><button class="btn-icon btn-release"><i class="fas fa-tag"></i> Releases</button></div>\` : '';
+        const officialButton = \`<a href="\${proj.homepage}" target="_blank" class="official-link-btn" title="访问官网"><i class="fas fa-external-link-alt"></i></a>\`;
         const bgIconClass = type === 'github' ? 'fab fa-github' : 'fab fa-docker';
         card.innerHTML = \`
             <div class="card-bg-icon"><i class="\${bgIconClass}"></i></div>
@@ -1780,14 +1706,14 @@ export const clientJS = `
             const version = project.versions[versionIdx];
             let filesHtml = '', releasesHtml = '';
             if (type === 'github') {
-                filesHtml = '<div class="file-list">' + version.files.map(f => '<div class="file-row"><i class="far fa-file-code file-icon"></i><span class="file-name">' + f + '</span><span class="file-meta">' + (Math.random()*4+1).toFixed(1) + ' KB</span></div>').join('') + '</div>';
+                filesHtml = \`<div class="file-list">\${version.files.map(f => \`<div class="file-row"><i class="far fa-file-code file-icon"></i><span class="file-name">\${f}</span><span class="file-meta">\${(Math.random()*4+1).toFixed(1)} KB</span></div>\`).join('')}</div>\`;
                 if (version.releases && version.releases.length > 0) {
-                    releasesHtml = '<div class="section-title">Releases</div><div class="releases-list">' + version.releases.map(r => '<div class="release-row"><i class="fas fa-tag release-icon"></i><div class="release-info"><span class="release-tag">' + r.tag + '</span><span class="release-date">' + r.date + '</span></div><div class="release-download"><button class="btn-icon btn-download"><i class="fas fa-download"></i> 下载</button></div></div>').join('') + '</div>';
+                    releasesHtml = \`<div class="section-title">Releases</div><div class="releases-list">\${version.releases.map(r => \`<div class="release-row"><i class="fas fa-tag release-icon"></i><div class="release-info"><span class="release-tag">\${r.tag}</span><span class="release-date">\${r.date}</span></div><div class="release-download"><button class="btn-icon btn-download"><i class="fas fa-download"></i> 下载</button></div></div>\`).join('')}</div>\`;
                 }
             } else {
-                filesHtml = '<div class="docker-tag-list">' + version.tags.map(tag => '<div class="tag-row"><span><i class="fas fa-tag"></i> ' + tag + '</span><span><button class="btn-icon"><i class="fas fa-download"></i> pull</button><button class="btn-icon btn-stream"><i class="fas fa-water"></i> 流式</button></span></div>').join('') + '</div>';
+                filesHtml = \`<div class="docker-tag-list">\${version.tags.map(tag => \`<div class="tag-row"><span><i class="fas fa-tag"></i> \${tag}</span><span><button class="btn-icon"><i class="fas fa-download"></i> pull</button><button class="btn-icon btn-stream"><i class="fas fa-water"></i> 流式</button></span></div>\`).join('')}</div>\`;
                 if (version.releases && version.releases.length > 0) {
-                    releasesHtml = '<div class="section-title">版本发布</div><div class="releases-list">' + version.releases.map(r => '<div class="release-row"><i class="fas fa-tag release-icon"></i><div class="release-info"><span class="release-tag">' + r.tag + '</span><span class="release-date">' + r.date + '</span>' + (r.digest ? '<span style="font-size:0.8rem;">' + r.digest + '</span>' : '') + '</div><div class="release-download"><button class="btn-icon btn-download"><i class="fas fa-download"></i> pull</button></div></div>').join('') + '</div>';
+                    releasesHtml = \`<div class="section-title">版本发布</div><div class="releases-list">\${version.releases.map(r => \`<div class="release-row"><i class="fas fa-tag release-icon"></i><div class="release-info"><span class="release-tag">\${r.tag}</span><span class="release-date">\${r.date}</span>\${r.digest ? '<span style="font-size:0.8rem;">' + r.digest + '</span>' : ''}</div><div class="release-download"><button class="btn-icon btn-download"><i class="fas fa-download"></i> pull</button></div></div>\`).join('')}</div>\`;
                 }
             }
             return { filesHtml, releasesHtml };
@@ -1796,7 +1722,7 @@ export const clientJS = `
             const { filesHtml, releasesHtml } = renderDetailContent(versionIdx);
             const versionDates = project.versions.map(v => v.date);
             const currentDate = project.versions[versionIdx].date;
-            return '<div class="detail-header"><button class="back-btn" id="backBtn"><i class="fas fa-arrow-left"></i> 返回列表</button><h2><i class="' + (type === 'github' ? 'fab fa-github' : 'fab fa-docker') + '"></i> ' + project.name + '</h2><div class="version-selector" id="versionSelector"><span id="selectedVersion">' + currentDate + '</span><i class="fas fa-chevron-down"></i><div class="version-dropdown" id="versionDropdown">' + versionDates.map((date, idx) => '<div class="version-item' + (idx === versionIdx ? ' current' : '') + '" data-version-index="' + idx + '">' + date + '</div>').join('') + '</div></div></div>' + filesHtml + (releasesHtml || '') + '<p style="margin-top:1rem; color:#475569;"><i class="fas fa-info-circle"></i> ' + (type === 'github' ? '文件列表和Releases随版本切换' : '标签列表和Releases随版本切换') + '</p>';
+            return \`<div class="detail-header"><button class="back-btn" id="backBtn"><i class="fas fa-arrow-left"></i> 返回列表</button><h2><i class="\${type === 'github' ? 'fab fa-github' : 'fab fa-docker'}"></i> \${project.name}</h2><div class="version-selector" id="versionSelector"><span id="selectedVersion">\${currentDate}</span><i class="fas fa-chevron-down"></i><div class="version-dropdown" id="versionDropdown">\${versionDates.map((date, idx) => \`<div class="version-item \${idx === versionIdx ? 'current' : ''}" data-version-index="\${idx}">\${date}</div>\`).join('')}</div></div></div>\${filesHtml}\${releasesHtml || ''}<p style="margin-top:1rem; color:#475569;"><i class="fas fa-info-circle"></i> \${type === 'github' ? '文件列表和Releases随版本切换' : '标签列表和Releases随版本切换'}</p>\`;
         };
         if (detailView) detailView.innerHTML = buildFullHtml(currentVersionIndex);
         const backBtn = safeGet('backBtn');
@@ -1850,7 +1776,7 @@ export const clientJS = `
         if (popupSelectedVersion) popupSelectedVersion.innerText = version.date;
         let dropdownHtml = '';
         versions.forEach((v, idx) => {
-            dropdownHtml += '<div class="version-item-sm' + (idx === versionIdx ? ' current' : '') + '" data-popup-version="' + idx + '">' + v.date + '</div>';
+            dropdownHtml += \`<div class="version-item-sm \${idx === versionIdx ? 'current' : ''}" data-popup-version="\${idx}">\${v.date}</div>\`;
         });
         if (popupVersionDropdown) popupVersionDropdown.innerHTML = dropdownHtml;
         renderPopupReleases(version.releases, official);
@@ -1885,7 +1811,7 @@ export const clientJS = `
         }
         let html = '';
         releases.forEach(r => {
-            html += '<div class="release-row"><i class="fas fa-tag release-icon"></i><div class="release-info"><span class="release-tag">' + r.tag + '</span><span class="release-date">' + r.date + '</span></div></div>';
+            html += \`<div class="release-row"><i class="fas fa-tag release-icon"></i><div class="release-info"><span class="release-tag">\${r.tag}</span><span class="release-date">\${r.date}</span></div></div>\`;
             if (r.assets && r.assets.length > 0) {
                 r.assets.forEach(asset => {
                     const size = asset.size ? (asset.size / 1024).toFixed(2) + ' KB' : '';
@@ -1901,7 +1827,7 @@ export const clientJS = `
                     \`;
                 });
             } else {
-                html += '<div class="asset-row">该版本无可下载文件</div>';
+                html += \`<div class="asset-row">该版本无可下载文件</div>\`;
             }
         });
         popupReleasesList.innerHTML = html;
@@ -1920,7 +1846,7 @@ export const clientJS = `
     function setActiveTab(tabId) {
         currentTab = tabId;
         tabs.forEach(t => t.classList.remove('active'));
-        const activeTab = document.querySelector('.tab-item[data-tab="' + tabId + '"]');
+        const activeTab = document.querySelector(\`.tab-item[data-tab="\${tabId}"]\`);
         if (activeTab) activeTab.classList.add('active');
         if (tabId === 'github') {
             if (githubGrid) githubGrid.classList.remove('hide');
@@ -1942,23 +1868,23 @@ export const clientJS = `
 
     function pollTaskStatus(taskId) {
         const interval = setInterval(async () => {
-            const res = await fetch(apiBase + '/task/' + taskId);
+            const res = await fetch(\`\${apiBase}/task/\${taskId}\`);
             const task = await res.json();
             if (task.status === 'completed' || task.status === 'completed_with_errors') {
                 clearInterval(interval);
                 const failedCount = task.failedFiles ? task.failedFiles.length : 0;
                 const failedAssets = task.failedAssets ? task.failedAssets.length : 0;
                 if (failedCount > 0 || failedAssets > 0) {
-                    alert('备份完成！文件: ' + task.processedFiles + ' 个，失败文件: ' + failedCount + '；资产: ' + (task.processedAssets || 0) + ' 个，失败资产: ' + failedAssets);
+                    alert(\`备份完成！文件: \${task.processedFiles} 个，失败文件: \${failedCount}；资产: \${task.processedAssets || 0} 个，失败资产: \${failedAssets}\`);
                 } else {
-                    alert('备份完成！共上传文件 ' + task.totalFiles + ' 个，资产 ' + (task.totalAssets || 0) + ' 个');
+                    alert(\`备份完成！共上传文件 \${task.totalFiles} 个，资产 \${task.totalAssets || 0} 个\`);
                 }
                 location.reload();
             } else if (task.status === 'failed') {
                 clearInterval(interval);
-                alert('备份失败: ' + task.error);
+                alert(\`备份失败: \${task.error}\`);
             } else if (task.status === 'processing' || task.status === 'queued') {
-                console.log('任务处理中...');
+                console.log(\`任务处理中...\`);
             }
         }, 3000);
     }
@@ -1998,7 +1924,7 @@ export const clientJS = `
     const saveCustomProjects = safeGet('saveCustomProjects');
     if (openCustomProject) openCustomProject.addEventListener('click', () => {
         const list = safeGet('customProjectList');
-        if (list) list.innerHTML = githubProjects.concat(dockerProjects).map(p => '<div class="project-item"><input type="checkbox" value="' + p.name + '"> ' + p.name + '</div>').join('');
+        if (list) list.innerHTML = githubProjects.concat(dockerProjects).map(p => \`<div class="project-item"><input type="checkbox" value="\${p.name}"> \${p.name}</div>\`).join('');
         if (customProjectModal) customProjectModal.style.display = 'flex';
     });
     if (closeCustomModal) closeCustomModal.addEventListener('click', () => { if (customProjectModal) customProjectModal.style.display = 'none'; });

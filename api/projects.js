@@ -1,7 +1,6 @@
 // api/projects.js
 import { getRepoFileTree } from '../lib/github.js';
 import { fetchWithRetry } from '../lib/github.js';
-import { getDockerManifest } from '../lib/docker.js';
 import { createMasterTask } from '../lib/taskManager.js';
 import { ensureProjectsTable } from '../lib/d1.js';
 
@@ -105,78 +104,26 @@ export async function handleRepoReleases(request, env) {
 }
 
 /**
- * 处理详细备份任务（扩展支持 Docker）
+ * 处理详细备份任务（包含用户选择的文件和资产）
  */
 export async function handleDetailedProject(request, env) {
     await ensureProjectsTable(env);
-    const body = await request.json();
-    const { type, owner, repo, bucketId, files, assets, tag } = body;
+    const { type, owner, repo, bucketId, files, assets } = await request.json();
 
-    if (type === 'github') {
-        // GitHub 备份
-        if (!owner || !repo || !bucketId) {
-            return Response.json({ error: 'Missing required fields' }, { status: 400 });
-        }
-        const bucket = await env.DB.prepare("SELECT id FROM buckets WHERE id = ?").bind(bucketId).first();
-        if (!bucket) {
-            return Response.json({ error: '指定的桶不存在' }, { status: 400 });
-        }
-        const taskId = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
-
-        // 判断是否全量备份：如果没有 files 字段（即未提供），则获取整个文件树
-        let fileList;
-        if (body.hasOwnProperty('files')) {
-            fileList = files || []; // 如果提供但为 null，则视为空数组
-        } else {
-            // 全量备份，获取文件树
-            try {
-                fileList = await getRepoFileTree(owner, repo, env);
-            } catch (error) {
-                return Response.json({ error: `获取文件树失败: ${error.message}` }, { status: 500 });
-            }
-        }
-
-        const assetList = assets || []; // 如果未提供 assets，则视为空数组
-
-        await createMasterTask(env, taskId, owner, repo, bucketId, fileList, assetList);
-        return Response.json({ success: true, taskId, message: 'GitHub 备份任务已提交，正在处理' });
-    } else if (type === 'docker') {
-        // Docker 备份
-        if (!owner || !repo || !bucketId) {
-            return Response.json({ error: 'Missing required fields' }, { status: 400 });
-        }
-        const bucket = await env.DB.prepare("SELECT id FROM buckets WHERE id = ?").bind(bucketId).first();
-        if (!bucket) {
-            return Response.json({ error: '指定的桶不存在' }, { status: 400 });
-        }
-
-        const image = `${owner}/${repo}`; // 可能包含 library/ 前缀，但 owner 已处理
-        const tagToUse = tag || 'latest';
-        const taskId = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
-
-        try {
-            // 获取 manifest，解析所有层
-            const manifest = await getDockerManifest(image, tagToUse, env);
-            if (!manifest || !manifest.layers) {
-                throw new Error('Invalid manifest or no layers');
-            }
-
-            // 构建层资产列表
-            const layers = manifest.layers.map((layer, index) => ({
-                name: `layer-${index + 1}-${layer.digest.replace(/[^a-zA-Z0-9]/g, '_')}.tar.gz`,
-                digest: layer.digest,
-                size: layer.size,
-                url: `${image}/blobs/${layer.digest}` // 用于标识，实际下载时使用 getDockerLayer
-            }));
-
-            // 创建主任务，资产为这些层
-            await createMasterTask(env, taskId, owner, repo, bucketId, [], layers);
-            return Response.json({ success: true, taskId, message: 'Docker 备份任务已提交，正在处理' });
-        } catch (error) {
-            console.error('Docker backup error:', error);
-            return Response.json({ error: `获取镜像 manifest 失败: ${error.message}` }, { status: 500 });
-        }
-    } else {
-        return Response.json({ error: '不支持的类型' }, { status: 400 });
+    if (type !== 'github') {
+        return Response.json({ error: '目前仅支持 GitHub 项目完整备份' }, { status: 400 });
     }
+
+    if (!owner || !repo || !bucketId) {
+        return Response.json({ error: 'Missing required fields' }, { status: 400 });
+    }
+
+    const bucket = await env.DB.prepare("SELECT id FROM buckets WHERE id = ?").bind(bucketId).first();
+    if (!bucket) {
+        return Response.json({ error: '指定的桶不存在' }, { status: 400 });
+    }
+
+    const taskId = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+    await createMasterTask(env, taskId, owner, repo, bucketId, files || [], assets || []);
+    return Response.json({ success: true, taskId, message: '详细备份任务已提交，正在处理' });
 }
