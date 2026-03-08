@@ -1210,8 +1210,15 @@ export const clientJS = `
                 }
                 const [owner, repo] = parts;
                 const type = addMode === 'GitHub' ? 'github' : 'docker';
-                currentProjectToBackup = { type, owner, repo, name: query };
-                openSelectBucketModal();
+                if (type === 'github') {
+                    // GitHub 打开备份内容选择模态框
+                    openBackupContentModal({ name: query, type, owner, repo });
+                } else {
+                    // Docker 暂时保留原有：弹出标签输入，然后选择桶
+                    const tag = prompt('请输入要备份的标签（默认为 latest）:', 'latest') || 'latest';
+                    currentProjectToBackup = { type, owner, repo, name: query, tag: tag.trim() };
+                    openSelectBucketModal();
+                }
             } else {
                 // 搜索模式
                 adminQuery = query;
@@ -1285,14 +1292,10 @@ export const clientJS = `
             }
             let payload;
             if (project.type === 'github') {
+                // GitHub 在 directMode 下已通过模态框处理，此处不应再执行
                 if (directMode) {
-                    // 直接备份模式：不传 files，表示全量
-                    payload = {
-                        type: 'github',
-                        owner: project.owner,
-                        repo: project.repo,
-                        bucketId
-                    };
+                    alert('请使用备份内容选择界面');
+                    return;
                 } else {
                     // 搜索模式（旧版备份）
                     payload = {
@@ -1304,12 +1307,12 @@ export const clientJS = `
             } else if (project.type === 'docker') {
                 // Docker 备份
                 if (directMode) {
-                    const tag = prompt('请输入要备份的标签（默认为 latest）:', 'latest') || 'latest';
+                    const tag = project.tag; // 从之前保存的 project 中获取
                     payload = {
                         type: 'docker',
                         owner: project.owner,
                         repo: project.repo,
-                        tag: tag.trim(),
+                        tag: tag,
                         bucketId
                     };
                 } else {
