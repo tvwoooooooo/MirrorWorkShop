@@ -47,6 +47,9 @@ export const clientJS = `
     let selectedFiles = new Set();
     let selectedAssets = new Set();
 
+    // 新增：后台搜索模式（'search' 或 'direct'）
+    let adminMode = 'search';
+
     // ============================================================================
     // 3. 数据加载与更新
     // ============================================================================
@@ -851,7 +854,7 @@ export const clientJS = `
     if (deleteDockerBtn) deleteDockerBtn.addEventListener('click', toggleDockerDeleteMode);
 
     // ============================================================================
-    // 10. 首页搜索功能
+    // 10. 首页搜索功能（不变）
     // ============================================================================
 
     const modeToggleBtn = safeGet('modeToggleBtn');
@@ -1057,11 +1060,11 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 11. 后台项目添加搜索
+    // 11. 后台项目添加搜索（增加 direct 模式）
     // ============================================================================
 
-    const addModeToggle = safeGet('addModeToggle');
-    const addModeText = safeGet('addModeText');
+    const adminModeToggle = safeGet('adminModeToggle');
+    const adminModeText = safeGet('adminModeText');
     const searchProjectBtn = safeGet('searchProjectBtn');
     const searchProjectInput = safeGet('searchProjectInput');
     const searchResultArea = safeGet('searchResultArea');
@@ -1072,12 +1075,126 @@ export const clientJS = `
     const bucketCardGrid = safeGet('bucketCardGrid');
     const confirmSelectBucketBtn = safeGet('confirmSelectBucketBtn');
 
-    let addMode = 'GitHub';
-    if (addModeToggle) {
-        addModeToggle.addEventListener('click', () => {
-            addMode = addMode === 'GitHub' ? 'Docker' : 'GitHub';
-            if (addModeText) addModeText.innerText = addMode;
+    // 切换后台模式
+    function toggleAdminMode() {
+        adminMode = adminMode === 'search' ? 'direct' : 'search';
+        if (adminModeText) {
+            adminModeText.innerText = adminMode === 'search' ? '搜索模式' : '直接输入';
+        }
+        if (searchProjectInput) {
+            searchProjectInput.placeholder = adminMode === 'search' ? '搜索项目名称...' : '输入完整项目名 (owner/repo)';
+        }
+        // 隐藏搜索结果区域（当切换到直接输入时）
+        if (searchResultArea) searchResultArea.classList.add('hide');
+    }
+    if (adminModeToggle) {
+        adminModeToggle.addEventListener('click', toggleAdminMode);
+    }
+
+    // 修改后的搜索/直接输入处理
+    if (searchProjectBtn) {
+        searchProjectBtn.addEventListener('click', async () => {
+            const query = searchProjectInput ? searchProjectInput.value.trim() : '';
+            if (!query) { alert('请输入搜索关键词或项目名'); return; }
+
+            if (adminMode === 'search') {
+                // 原搜索逻辑
+                adminQuery = query;
+                adminType = addMode === 'GitHub' ? 'github' : 'docker';
+                adminCurrentPage = 1;
+                adminHasMore = true;
+                if (searchResultArea) searchResultArea.classList.remove('hide');
+                await loadAdminResults(adminQuery, adminType, 1);
+            } else {
+                // 直接输入模式：解析 owner/repo
+                const parts = query.split('/');
+                if (parts.length !== 2) {
+                    alert('请输入正确的格式: owner/repo');
+                    return;
+                }
+                const [owner, repo] = parts;
+                const type = addMode === 'GitHub' ? 'github' : 'docker';
+
+                if (type === 'github') {
+                    // GitHub: 打开备份模态框，直接获取文件树
+                    openBackupContentModal({ name: query, type, owner, repo });
+                } else {
+                    // Docker: 需要用户输入 tag
+                    const tag = prompt('请输入要备份的 Docker 镜像标签（默认为 latest）:', 'latest');
+                    if (tag === null) return;
+                    const finalTag = tag.trim() || 'latest';
+                    // 直接进入桶选择流程（可简化：弹出桶选择模态框，然后提交）
+                    currentProjectToBackup = { name: query, type, owner, repo, tag: finalTag };
+                    // 使用旧的选择桶模态框，并修改其确认逻辑以发送 Docker 请求
+                    openSelectBucketModal(); // 复用旧模态框
+                }
+            }
         });
+    }
+
+    // 修改 confirmSelectBucketBtn 以支持 Docker 直接输入模式
+    if (confirmSelectBucketBtn) {
+        // 保存原有事件监听器，需要先移除再添加
+        const newConfirmHandler = async () => {
+            const selectedCard = document.querySelector('.selectable-card.bucket-card-selected');
+            if (!selectedCard) {
+                alert('请选择一个桶');
+                return;
+            }
+            const bucketId = selectedCard.dataset.bucketId;
+            const project = currentProjectToBackup;
+            if (!project) {
+                alert('项目信息丢失');
+                return;
+            }
+
+            if (project.type === 'github') {
+                // 原有 GitHub 旧版全量备份（保留兼容）
+                const res = await fetch(apiBase + '/project', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ type: project.type, name: project.name, bucketId })
+                });
+                const result = await res.json();
+                if (result.success) {
+                    alert(\`备份任务已提交，任务ID: \${result.taskId}\`);
+                    pollTaskStatus(result.taskId);
+                    selectBucketModal.style.display = 'none';
+                    currentProjectToBackup = null;
+                } else {
+                    alert('保存失败：' + (result.error || '未知错误'));
+                }
+            } else if (project.type === 'docker') {
+                // Docker 备份，调用 detailed 接口（直接传入 tag）
+                const payload = {
+                    type: 'docker',
+                    owner: project.owner,
+                    repo: project.repo,
+                    bucketId,
+                    tag: project.tag
+                };
+                try {
+                    const res = await fetch(apiBase + '/project/detailed', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    const result = await res.json();
+                    if (result.success) {
+                        alert(\`Docker 备份任务已提交，任务ID: \${result.taskId}\`);
+                        pollTaskStatus(result.taskId);
+                        selectBucketModal.style.display = 'none';
+                        currentProjectToBackup = null;
+                    } else {
+                        alert('保存失败：' + (result.error || '未知错误'));
+                    }
+                } catch (e) {
+                    alert('请求失败：' + e.message);
+                }
+            }
+        };
+        // 移除所有现有监听器（简单粗暴：替换 onclick）
+        confirmSelectBucketBtn.onclick = newConfirmHandler;
     }
 
     async function loadAdminResults(query, type, page) {
@@ -1142,7 +1259,13 @@ export const clientJS = `
                     if (type === 'github') {
                         openBackupContentModal({ name, type, owner, repo });
                     } else {
-                        alert('Docker 备份功能尚未实现');
+                        // Docker 备份：先让用户输入标签（或选择）
+                        const tag = prompt('请输入要备份的 Docker 镜像标签（默认为 latest）:', 'latest');
+                        if (tag === null) return;
+                        const finalTag = tag.trim() || 'latest';
+                        // 复用选择桶模态框
+                        currentProjectToBackup = { name, type, owner, repo, tag: finalTag };
+                        openSelectBucketModal();
                     }
                 });
             });
@@ -1172,19 +1295,6 @@ export const clientJS = `
                     loadAdminResults(adminQuery, adminType, adminCurrentPage);
                 }
             }
-        });
-    }
-
-    if (searchProjectBtn) {
-        searchProjectBtn.addEventListener('click', async () => {
-            const query = searchProjectInput ? searchProjectInput.value.trim() : '';
-            if (!query) { alert('请输入搜索关键词'); return; }
-            adminQuery = query;
-            adminType = addMode === 'GitHub' ? 'github' : 'docker';
-            adminCurrentPage = 1;
-            adminHasMore = true;
-            if (searchResultArea) searchResultArea.classList.remove('hide');
-            await loadAdminResults(adminQuery, adminType, 1);
         });
     }
 
@@ -1234,38 +1344,8 @@ export const clientJS = `
         });
     }
 
-    if (confirmSelectBucketBtn) {
-        confirmSelectBucketBtn.addEventListener('click', async () => {
-            const selectedCard = document.querySelector('.selectable-card.bucket-card-selected');
-            if (!selectedCard) {
-                alert('请选择一个桶');
-                return;
-            }
-            const bucketId = selectedCard.dataset.bucketId;
-            const project = currentProjectToBackup;
-            if (!project) {
-                alert('项目信息丢失');
-                return;
-            }
-            const res = await fetch(apiBase + '/project', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ type: project.type, name: project.name, bucketId })
-            });
-            const result = await res.json();
-            if (result.success) {
-                alert(\`完整备份任务已提交，任务ID: \${result.taskId}\`);
-                pollTaskStatus(result.taskId);
-                selectBucketModal.style.display = 'none';
-                currentProjectToBackup = null;
-            } else {
-                alert('保存失败：' + (result.error || '未知错误'));
-            }
-        });
-    }
-
     // ============================================================================
-    // 12. 两步备份流程函数
+    // 12. 两步备份流程函数（与之前相同）
     // ============================================================================
 
     const backupModal = safeGet('backupContentModal');
@@ -1576,7 +1656,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 13. 队列信息显示
+    // 13. 队列信息显示（不变）
     // ============================================================================
 
     const queueMenuBtn = safeGet('queueMenuBtn');
@@ -1650,7 +1730,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 14. 项目卡片渲染
+    // 14. 项目卡片渲染（不变）
     // ============================================================================
 
     const githubGrid = safeGet('githubGrid');
