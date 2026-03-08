@@ -791,15 +791,16 @@ export const clientJS = `
         dockerTokenForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const name = dockerTokenName.value.trim();
+            const username = document.getElementById('dockerUsername').value.trim();
             const token = dockerTokenValue.value.trim();
-            if (!name || !token) {
-                alert('请填写名称和令牌');
+            if (!name || !token || !username) {
+                alert('请填写名称、用户名和令牌');
                 return;
             }
             const res = await fetch(apiBase + '/tokens/docker', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, token })
+                body: JSON.stringify({ name, username, token })
             });
             if (res.ok) {
                 alert('令牌已保存');

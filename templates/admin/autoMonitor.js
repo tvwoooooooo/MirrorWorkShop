@@ -204,6 +204,10 @@ export const autoMonitorHTML = `
                 <input type="text" id="dockerTokenName" placeholder="例如: 我的 docker 令牌" required>
             </div>
             <div class="input-group">
+                <label>Docker Hub 用户名 <span style="color:#ef4444;">*</span></label>
+                <input type="text" id="dockerUsername" placeholder="例如: mydockeruser" required>
+            </div>
+            <div class="input-group">
                 <label>Docker Hub 访问令牌 <span style="color:#ef4444;">*</span></label>
                 <input type="password" id="dockerTokenValue" placeholder="dckr_xxxxxxxx" required>
             </div>

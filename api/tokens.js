@@ -61,13 +61,13 @@ export async function handleDockerTokens(request, env) {
         }));
         return Response.json(safeTokens);
     } else if (method === 'POST') {
-        const { name, token } = await request.json();
-        if (!name || !token) {
-            return Response.json({ error: 'Name and token required' }, { status: 400 });
+        const { name, username, token } = await request.json();
+        if (!name || !username || !token) {
+            return Response.json({ error: 'Name, username, and token required' }, { status: 400 });
         }
         await env.DB.prepare(
-            "INSERT INTO tokens (type, name, token, created_at) VALUES (?, ?, ?, ?)"
-        ).bind('docker', name, token, Date.now()).run();
+            "INSERT INTO tokens (type, name, username, token, created_at) VALUES (?, ?, ?, ?, ?)"
+        ).bind('docker', name, username, token, Date.now()).run();
         return Response.json({ success: true });
     } else if (method === 'DELETE') {
         const url = new URL(request.url);
