@@ -145,8 +145,8 @@ export const addProjectHTML = `
         </div>
     </div>
     <div class="search-box" style="max-width: 600px;">
-        <button class="mode-toggle" id="addModeToggle">
-            <span id="addModeText">GitHub</span>
+        <button class="mode-toggle" id="adminModeToggle">
+            <span id="adminModeText">搜索模式</span>
             <i class="fas fa-chevron-down"></i>
         </button>
         <input type="text" id="searchProjectInput" placeholder="搜索项目名称...">
