@@ -20,8 +20,3 @@ max_concurrency = 1
 binding = "DB"
 database_name = "b2-mirror-db"
 # 无需填写 ID，可在 Dashboard 手动绑定
-
-[observability]
-[observability.logs]
-enabled = true
-invocation_logs = true

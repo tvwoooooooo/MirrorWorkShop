@@ -886,6 +886,18 @@ export const clientJS = `
             const res = await fetch(\`\${apiBase}/search?q=\${encodeURIComponent(query)}&type=\${type}&page=\${page}\`);
             if (!res.ok) throw new Error('搜索失败');
             const data = await res.json();
+            
+            // Log display logic
+            const logContainerWrapper = safeGet('log-container-wrapper');
+            const logContainer = safeGet('log-container');
+            if (data.logs && data.logs.length > 0) {
+                if (logContainerWrapper) logContainerWrapper.style.display = 'block';
+                if (logContainer) logContainer.textContent = data.logs.join('\\n');
+            } else {
+                if (logContainerWrapper) logContainerWrapper.style.display = 'none';
+                if (logContainer) logContainer.textContent = '';
+            }
+
             const newItems = data.items;
             officialTotal = data.total;
             officialHasMore = newItems.length === 10 && (page * 10) < officialTotal;
