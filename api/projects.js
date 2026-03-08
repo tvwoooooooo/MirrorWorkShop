@@ -112,7 +112,7 @@ export async function handleDetailedProject(request, env) {
     const { type, owner, repo, bucketId, files, assets, tag } = await request.json();
 
     if (type === 'github') {
-        // GitHub 备份逻辑
+        // GitHub 备份逻辑（保持不变）
         if (!owner || !repo || !bucketId) {
             return Response.json({ error: 'Missing required fields' }, { status: 400 });
         }
