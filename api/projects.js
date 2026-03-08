@@ -109,10 +109,11 @@ export async function handleRepoReleases(request, env) {
  */
 export async function handleDetailedProject(request, env) {
     await ensureProjectsTable(env);
-    const { type, owner, repo, bucketId, files, assets, tag } = await request.json();
+    const body = await request.json();
+    const { type, owner, repo, bucketId, files, assets, tag } = body;
 
     if (type === 'github') {
-        // GitHub 备份逻辑（保持不变）
+        // GitHub 备份
         if (!owner || !repo || !bucketId) {
             return Response.json({ error: 'Missing required fields' }, { status: 400 });
         }
@@ -121,10 +122,26 @@ export async function handleDetailedProject(request, env) {
             return Response.json({ error: '指定的桶不存在' }, { status: 400 });
         }
         const taskId = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
-        await createMasterTask(env, taskId, owner, repo, bucketId, files || [], assets || []);
+
+        // 判断是否全量备份：如果没有 files 字段（即未提供），则获取整个文件树
+        let fileList;
+        if (body.hasOwnProperty('files')) {
+            fileList = files || []; // 如果提供但为 null，则视为空数组
+        } else {
+            // 全量备份，获取文件树
+            try {
+                fileList = await getRepoFileTree(owner, repo, env);
+            } catch (error) {
+                return Response.json({ error: `获取文件树失败: ${error.message}` }, { status: 500 });
+            }
+        }
+
+        const assetList = assets || []; // 如果未提供 assets，则视为空数组
+
+        await createMasterTask(env, taskId, owner, repo, bucketId, fileList, assetList);
         return Response.json({ success: true, taskId, message: 'GitHub 备份任务已提交，正在处理' });
     } else if (type === 'docker') {
-        // Docker 备份逻辑
+        // Docker 备份
         if (!owner || !repo || !bucketId) {
             return Response.json({ error: 'Missing required fields' }, { status: 400 });
         }
