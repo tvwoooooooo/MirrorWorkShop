@@ -47,7 +47,7 @@ export const clientJS = `
     let selectedFiles = new Set();
     let selectedAssets = new Set();
 
-    // 新增：直接备份模式开关
+    // 直接备份模式开关
     let directMode = false;
 
     // ============================================================================
@@ -1325,7 +1325,7 @@ export const clientJS = `
             });
             const result = await res.json();
             if (result.success) {
-                alert(`备份任务已提交，任务ID: ${result.taskId}`);
+                alert('备份任务已提交，任务ID: ' + result.taskId);
                 pollTaskStatus(result.taskId);
                 selectBucketModal.style.display = 'none';
                 currentProjectToBackup = null;
@@ -1378,21 +1378,21 @@ export const clientJS = `
         if (selectedReleasesCount) selectedReleasesCount.innerText = '0 个版本';
 
         try {
-            const res = await fetch(`/api/repo-tree?owner=${project.owner}&repo=${project.repo}`);
+            const res = await fetch('/api/repo-tree?owner=' + project.owner + '&repo=' + project.repo);
             if (!res.ok) throw new Error('获取文件树失败');
             backupFileTree = await res.json();
             renderFileTree();
         } catch (e) {
-            fileTreeContainer.innerHTML = `<div class="empty-state">加载失败：${e.message}</div>`;
+            fileTreeContainer.innerHTML = '<div class="empty-state">加载失败：' + e.message + '</div>';
         }
 
         try {
-            const res = await fetch(`/api/repo-releases?owner=${project.owner}&repo=${project.repo}`);
+            const res = await fetch('/api/repo-releases?owner=' + project.owner + '&repo=' + project.repo);
             if (!res.ok) throw new Error('获取 Releases 失败');
             backupReleases = await res.json();
             renderReleases();
         } catch (e) {
-            releasesContainer.innerHTML = `<div class="empty-state">加载失败：${e.message}</div>`;
+            releasesContainer.innerHTML = '<div class="empty-state">加载失败：' + e.message + '</div>';
         }
     }
 
@@ -1403,12 +1403,12 @@ export const clientJS = `
         }
         let html = '';
         backupFileTree.forEach(path => {
-            html += `
+            html += \`
                 <div class="file-item">
-                    <input type="checkbox" class="file-checkbox" data-path="${path}" checked>
-                    <span class="file-name">${path}</span>
+                    <input type="checkbox" class="file-checkbox" data-path="\${path}" checked>
+                    <span class="file-name">\${path}</span>
                 </div>
-            `;
+            \`;
         });
         fileTreeContainer.innerHTML = html;
 
@@ -1425,7 +1425,7 @@ export const clientJS = `
         });
         const count = selectedFiles.size;
         if (selectedFilesCount) {
-            selectedFilesCount.innerText = count === backupFileTree.length ? '全部文件' : `${count} 个文件`;
+            selectedFilesCount.innerText = count === backupFileTree.length ? '全部文件' : (count + ' 个文件');
         }
         if (selectAllFiles) {
             selectAllFiles.checked = count === backupFileTree.length;
@@ -1441,27 +1441,27 @@ export const clientJS = `
         let html = '';
         backupReleases.forEach((release, idx) => {
             const hasAssets = release.assets && release.assets.length > 0;
-            const assetsHtml = hasAssets ? release.assets.map(asset => `
+            const assetsHtml = hasAssets ? release.assets.map(asset => \`
                 <div class="asset-item">
-                    <input type="checkbox" class="asset-checkbox" data-release-idx="${idx}" data-asset-url="${asset.url}" data-asset-name="${asset.name}">
-                    <span class="asset-name">${asset.name}</span>
-                    <span class="asset-size">${(asset.size/1024).toFixed(2)} KB</span>
+                    <input type="checkbox" class="asset-checkbox" data-release-idx="\${idx}" data-asset-url="\${asset.url}" data-asset-name="\${asset.name}">
+                    <span class="asset-name">\${asset.name}</span>
+                    <span class="asset-size">\${(asset.size/1024).toFixed(2)} KB</span>
                 </div>
-            `).join('') : '<div class="asset-item" style="color:#94a3b8;">无资产文件</div>';
+            \`).join('') : '<div class="asset-item" style="color:#94a3b8;">无资产文件</div>';
             
-            html += `
-                <div class="release-item" data-release-idx="${idx}">
+            html += \`
+                <div class="release-item" data-release-idx="\${idx}">
                     <div class="release-header">
-                        ${hasAssets ? `<input type="checkbox" class="release-checkbox" data-release-idx="${idx}">` : '<span style="width: 20px;"></span>'}
-                        <span class="release-tag">${release.tag}</span>
-                        <span class="release-date">${release.date}</span>
+                        \${hasAssets ? \`<input type="checkbox" class="release-checkbox" data-release-idx="\${idx}">\` : '<span style="width: 20px;"></span>'}
+                        <span class="release-tag">\${release.tag}</span>
+                        <span class="release-date">\${release.date}</span>
                         <i class="fas fa-chevron-down" style="margin-left: auto; cursor: pointer;"></i>
                     </div>
                     <div class="release-assets">
-                        ${assetsHtml}
+                        \${assetsHtml}
                     </div>
                 </div>
-            `;
+            \`;
         });
         releasesContainer.innerHTML = html;
 
@@ -1478,7 +1478,7 @@ export const clientJS = `
         document.querySelectorAll('.release-checkbox').forEach(cb => {
             cb.addEventListener('change', (e) => {
                 const idx = e.target.dataset.releaseIdx;
-                const assets = document.querySelectorAll(`.asset-checkbox[data-release-idx="${idx}"]`);
+                const assets = document.querySelectorAll(\`.asset-checkbox[data-release-idx="\${idx}"]\`);
                 assets.forEach(asset => asset.checked = e.target.checked);
                 updateSelectedAssets();
             });
@@ -1497,12 +1497,12 @@ export const clientJS = `
             selectedAssets.add(cb.dataset.assetUrl);
         });
         const count = selectedAssets.size;
-        if (selectedReleasesCount) selectedReleasesCount.innerText = `${count} 个文件`;
+        if (selectedReleasesCount) selectedReleasesCount.innerText = count + ' 个文件';
 
         backupReleases.forEach((release, idx) => {
-            const releaseCheckbox = document.querySelector(`.release-checkbox[data-release-idx="${idx}"]`);
+            const releaseCheckbox = document.querySelector(\`.release-checkbox[data-release-idx="\${idx}"]\`);
             if (!releaseCheckbox) return;
-            const assetCheckboxes = document.querySelectorAll(`.asset-checkbox[data-release-idx="${idx}"]`);
+            const assetCheckboxes = document.querySelectorAll(\`.asset-checkbox[data-release-idx="\${idx}"]\`);
             if (assetCheckboxes.length === 0) return;
             const checkedCount = Array.from(assetCheckboxes).filter(cb => cb.checked).length;
             releaseCheckbox.checked = checkedCount === assetCheckboxes.length;
@@ -1545,15 +1545,15 @@ export const clientJS = `
             else if (usagePercent >= 60) bgColorClass = 'orange';
             else if (usagePercent >= 40) bgColorClass = 'yellow';
 
-            return `
-                <div class="bucket-card selectable-card" data-bucket-id="${bucket.id}" data-index="${index}">
-                    <div class="progress-bg ${bgColorClass}" style="width: ${usagePercent}%;"></div>
-                    <div class="percentage">${usagePercent.toFixed(1)}%</div>
+            return \`
+                <div class="bucket-card selectable-card" data-bucket-id="\${bucket.id}" data-index="\${index}">
+                    <div class="progress-bg \${bgColorClass}" style="width: \${usagePercent}%;"></div>
+                    <div class="percentage">\${usagePercent.toFixed(1)}%</div>
                     <div class="bucket-content">
-                        <span class="bucket-name">${bucket.customName}</span>
+                        <span class="bucket-name">\${bucket.customName}</span>
                     </div>
                 </div>
-            `;
+            \`;
         }).join('');
         step2BucketGrid.innerHTML = cardsHtml;
 
@@ -1610,7 +1610,7 @@ export const clientJS = `
                 });
                 const result = await res.json();
                 if (result.success) {
-                    alert(`备份任务已提交，任务ID: ${result.taskId}`);
+                    alert('备份任务已提交，任务ID: ' + result.taskId);
                     pollTaskStatus(result.taskId);
                     backupModal.style.display = 'none';
                 } else {
@@ -1672,7 +1672,7 @@ export const clientJS = `
                     const first = tasks[0];
                     queueFileCount.style.display = 'none';
                     queueFileName.style.display = 'inline';
-                    queueFileName.innerText = `正在上传: ${first.name}`;
+                    queueFileName.innerText = '正在上传: ' + first.name;
                 }
             }
 
@@ -1680,12 +1680,12 @@ export const clientJS = `
                 if (tasks.length === 0) {
                     queueTaskList.innerHTML = '<div class="empty-state">暂无活动任务</div>';
                 } else {
-                    queueTaskList.innerHTML = tasks.map(task => `
+                    queueTaskList.innerHTML = tasks.map(task => \`
                         <div class="queue-task-item">
-                            <span class="task-name">${task.name}</span>
-                            <span class="task-status">${task.status === 'processing' ? '正在上传' : '等待中'}</span>
+                            <span class="task-name">\${task.name}</span>
+                            <span class="task-status">\${task.status === 'processing' ? '正在上传' : '等待中'}</span>
                         </div>
-                    `).join('');
+                    \`).join('');
                 }
             }
         } catch (e) {
@@ -1738,26 +1738,26 @@ export const clientJS = `
     function createProjectCard(proj, type) {
         const card = document.createElement('div'); card.className = 'project-card';
         const isGitHub = type === 'github';
-        const displayName = isGitHub ? proj.name : proj.name + (proj.versions[0].tags ? `:${proj.versions[0].tags[0]}` : '');
+        const displayName = isGitHub ? proj.name : proj.name + (proj.versions[0].tags ? ':' + proj.versions[0].tags[0] : '');
         const hasAnyReleases = proj.versions.some(v => v.releases && v.releases.length > 0);
-        const releasesButton = hasAnyReleases ? `<div class="releases-group"><button class="btn-icon btn-release"><i class="fas fa-tag"></i> Releases</button></div>` : '';
-        const officialButton = `<a href="${proj.homepage}" target="_blank" class="official-link-btn" title="访问官网"><i class="fas fa-external-link-alt"></i></a>`;
+        const releasesButton = hasAnyReleases ? '<div class="releases-group"><button class="btn-icon btn-release"><i class="fas fa-tag"></i> Releases</button></div>' : '';
+        const officialButton = '<a href="' + proj.homepage + '" target="_blank" class="official-link-btn" title="访问官网"><i class="fas fa-external-link-alt"></i></a>';
         const bgIconClass = type === 'github' ? 'fab fa-github' : 'fab fa-docker';
-        card.innerHTML = `
-            <div class="card-bg-icon"><i class="${bgIconClass}"></i></div>
+        card.innerHTML = \`
+            <div class="card-bg-icon"><i class="\${bgIconClass}"></i></div>
             <div class="card-header">
-                <a class="project-name" data-detail='${JSON.stringify(proj).replace(/'/g, "&apos;")}' data-type="${type}">${displayName}</a>
-                <div class="header-right">${officialButton}</div>
+                <a class="project-name" data-detail='\${JSON.stringify(proj).replace(/'/g, "&apos;")}' data-type="\${type}">\${displayName}</a>
+                <div class="header-right">\${officialButton}</div>
             </div>
             <div class="project-meta">
-                <span class="meta-item"><i class="far fa-calendar-alt"></i> 最后更新: ${proj.lastUpdate}</span>
-                <span class="meta-item"><i class="far fa-clock"></i> 存入: ${proj.versions[0].date}</span>
+                <span class="meta-item"><i class="far fa-calendar-alt"></i> 最后更新: \${proj.lastUpdate}</span>
+                <span class="meta-item"><i class="far fa-clock"></i> 存入: \${proj.versions[0].date}</span>
             </div>
             <div class="action-buttons">
                 <button class="btn-icon git-link-btn"><i class="far fa-copy"></i> Git链接</button>
                 <div style="display: flex; gap:0.3rem;"><button class="btn-icon btn-download"><i class="fas fa-file-zipper"></i> 下载ZIP</button></div>
-                ${releasesButton}
-            </div>`;
+                \${releasesButton}
+            </div>\`;
         const nameLink = card.querySelector('.project-name');
         if (nameLink) {
             nameLink.addEventListener('click', (e) => { e.preventDefault(); showDetail(type, JSON.parse(e.target.dataset.detail)); });
@@ -1777,14 +1777,14 @@ export const clientJS = `
             const version = project.versions[versionIdx];
             let filesHtml = '', releasesHtml = '';
             if (type === 'github') {
-                filesHtml = `<div class="file-list">${version.files.map(f => `<div class="file-row"><i class="far fa-file-code file-icon"></i><span class="file-name">${f}</span><span class="file-meta">${(Math.random()*4+1).toFixed(1)} KB</span></div>`).join('')}</div>`;
+                filesHtml = '<div class="file-list">' + version.files.map(f => '<div class="file-row"><i class="far fa-file-code file-icon"></i><span class="file-name">' + f + '</span><span class="file-meta">' + (Math.random()*4+1).toFixed(1) + ' KB</span></div>').join('') + '</div>';
                 if (version.releases && version.releases.length > 0) {
-                    releasesHtml = `<div class="section-title">Releases</div><div class="releases-list">${version.releases.map(r => `<div class="release-row"><i class="fas fa-tag release-icon"></i><div class="release-info"><span class="release-tag">${r.tag}</span><span class="release-date">${r.date}</span></div><div class="release-download"><button class="btn-icon btn-download"><i class="fas fa-download"></i> 下载</button></div></div>`).join('')}</div>`;
+                    releasesHtml = '<div class="section-title">Releases</div><div class="releases-list">' + version.releases.map(r => '<div class="release-row"><i class="fas fa-tag release-icon"></i><div class="release-info"><span class="release-tag">' + r.tag + '</span><span class="release-date">' + r.date + '</span></div><div class="release-download"><button class="btn-icon btn-download"><i class="fas fa-download"></i> 下载</button></div></div>').join('') + '</div>';
                 }
             } else {
-                filesHtml = `<div class="docker-tag-list">${version.tags.map(tag => `<div class="tag-row"><span><i class="fas fa-tag"></i> ${tag}</span><span><button class="btn-icon"><i class="fas fa-download"></i> pull</button><button class="btn-icon btn-stream"><i class="fas fa-water"></i> 流式</button></span></div>`).join('')}</div>`;
+                filesHtml = '<div class="docker-tag-list">' + version.tags.map(tag => '<div class="tag-row"><span><i class="fas fa-tag"></i> ' + tag + '</span><span><button class="btn-icon"><i class="fas fa-download"></i> pull</button><button class="btn-icon btn-stream"><i class="fas fa-water"></i> 流式</button></span></div>').join('') + '</div>';
                 if (version.releases && version.releases.length > 0) {
-                    releasesHtml = `<div class="section-title">版本发布</div><div class="releases-list">${version.releases.map(r => `<div class="release-row"><i class="fas fa-tag release-icon"></i><div class="release-info"><span class="release-tag">${r.tag}</span><span class="release-date">${r.date}</span>${r.digest ? '<span style="font-size:0.8rem;">' + r.digest + '</span>' : ''}</div><div class="release-download"><button class="btn-icon btn-download"><i class="fas fa-download"></i> pull</button></div></div>`).join('')}</div>`;
+                    releasesHtml = '<div class="section-title">版本发布</div><div class="releases-list">' + version.releases.map(r => '<div class="release-row"><i class="fas fa-tag release-icon"></i><div class="release-info"><span class="release-tag">' + r.tag + '</span><span class="release-date">' + r.date + '</span>' + (r.digest ? '<span style="font-size:0.8rem;">' + r.digest + '</span>' : '') + '</div><div class="release-download"><button class="btn-icon btn-download"><i class="fas fa-download"></i> pull</button></div></div>').join('') + '</div>';
                 }
             }
             return { filesHtml, releasesHtml };
@@ -1793,7 +1793,7 @@ export const clientJS = `
             const { filesHtml, releasesHtml } = renderDetailContent(versionIdx);
             const versionDates = project.versions.map(v => v.date);
             const currentDate = project.versions[versionIdx].date;
-            return `<div class="detail-header"><button class="back-btn" id="backBtn"><i class="fas fa-arrow-left"></i> 返回列表</button><h2><i class="${type === 'github' ? 'fab fa-github' : 'fab fa-docker'}"></i> ${project.name}</h2><div class="version-selector" id="versionSelector"><span id="selectedVersion">${currentDate}</span><i class="fas fa-chevron-down"></i><div class="version-dropdown" id="versionDropdown">${versionDates.map((date, idx) => `<div class="version-item ${idx === versionIdx ? 'current' : ''}" data-version-index="${idx}">${date}</div>`).join('')}</div></div></div>${filesHtml}${releasesHtml || ''}<p style="margin-top:1rem; color:#475569;"><i class="fas fa-info-circle"></i> ${type === 'github' ? '文件列表和Releases随版本切换' : '标签列表和Releases随版本切换'}</p>`;
+            return '<div class="detail-header"><button class="back-btn" id="backBtn"><i class="fas fa-arrow-left"></i> 返回列表</button><h2><i class="' + (type === 'github' ? 'fab fa-github' : 'fab fa-docker') + '"></i> ' + project.name + '</h2><div class="version-selector" id="versionSelector"><span id="selectedVersion">' + currentDate + '</span><i class="fas fa-chevron-down"></i><div class="version-dropdown" id="versionDropdown">' + versionDates.map((date, idx) => '<div class="version-item' + (idx === versionIdx ? ' current' : '') + '" data-version-index="' + idx + '">' + date + '</div>').join('') + '</div></div></div>' + filesHtml + (releasesHtml || '') + '<p style="margin-top:1rem; color:#475569;"><i class="fas fa-info-circle"></i> ' + (type === 'github' ? '文件列表和Releases随版本切换' : '标签列表和Releases随版本切换') + '</p>';
         };
         if (detailView) detailView.innerHTML = buildFullHtml(currentVersionIndex);
         const backBtn = safeGet('backBtn');
@@ -1847,7 +1847,7 @@ export const clientJS = `
         if (popupSelectedVersion) popupSelectedVersion.innerText = version.date;
         let dropdownHtml = '';
         versions.forEach((v, idx) => {
-            dropdownHtml += `<div class="version-item-sm ${idx === versionIdx ? 'current' : ''}" data-popup-version="${idx}">${v.date}</div>`;
+            dropdownHtml += '<div class="version-item-sm' + (idx === versionIdx ? ' current' : '') + '" data-popup-version="' + idx + '">' + v.date + '</div>';
         });
         if (popupVersionDropdown) popupVersionDropdown.innerHTML = dropdownHtml;
         renderPopupReleases(version.releases, official);
@@ -1882,23 +1882,23 @@ export const clientJS = `
         }
         let html = '';
         releases.forEach(r => {
-            html += `<div class="release-row"><i class="fas fa-tag release-icon"></i><div class="release-info"><span class="release-tag">${r.tag}</span><span class="release-date">${r.date}</span></div></div>`;
+            html += '<div class="release-row"><i class="fas fa-tag release-icon"></i><div class="release-info"><span class="release-tag">' + r.tag + '</span><span class="release-date">' + r.date + '</span></div></div>';
             if (r.assets && r.assets.length > 0) {
                 r.assets.forEach(asset => {
                     const size = asset.size ? (asset.size / 1024).toFixed(2) + ' KB' : '';
-                    html += `
+                    html += \`
                         <div class="asset-row">
-                            <span class="asset-name">📄 ${asset.name}</span>
-                            <span class="asset-size">${size}</span>
+                            <span class="asset-name">📄 \${asset.name}</span>
+                            <span class="asset-size">\${size}</span>
                             <div class="release-download">
-                                <button class="btn-icon btn-download" onclick="window.open('${asset.url}', '_blank')"><i class="fas fa-download"></i> 官网下载</button>
+                                <button class="btn-icon btn-download" onclick="window.open('\${asset.url}', '_blank')"><i class="fas fa-download"></i> 官网下载</button>
                                 <button class="btn-icon btn-stream" onclick="alert('流式下载演示')"><i class="fas fa-water"></i> 流式下载</button>
                             </div>
                         </div>
-                    `;
+                    \`;
                 });
             } else {
-                html += `<div class="asset-row">该版本无可下载文件</div>`;
+                html += '<div class="asset-row">该版本无可下载文件</div>';
             }
         });
         popupReleasesList.innerHTML = html;
@@ -1917,7 +1917,7 @@ export const clientJS = `
     function setActiveTab(tabId) {
         currentTab = tabId;
         tabs.forEach(t => t.classList.remove('active'));
-        const activeTab = document.querySelector(`.tab-item[data-tab="${tabId}"]`);
+        const activeTab = document.querySelector('.tab-item[data-tab="' + tabId + '"]');
         if (activeTab) activeTab.classList.add('active');
         if (tabId === 'github') {
             if (githubGrid) githubGrid.classList.remove('hide');
@@ -1939,23 +1939,23 @@ export const clientJS = `
 
     function pollTaskStatus(taskId) {
         const interval = setInterval(async () => {
-            const res = await fetch(`${apiBase}/task/${taskId}`);
+            const res = await fetch(apiBase + '/task/' + taskId);
             const task = await res.json();
             if (task.status === 'completed' || task.status === 'completed_with_errors') {
                 clearInterval(interval);
                 const failedCount = task.failedFiles ? task.failedFiles.length : 0;
                 const failedAssets = task.failedAssets ? task.failedAssets.length : 0;
                 if (failedCount > 0 || failedAssets > 0) {
-                    alert(`备份完成！文件: ${task.processedFiles} 个，失败文件: ${failedCount}；资产: ${task.processedAssets || 0} 个，失败资产: ${failedAssets}`);
+                    alert('备份完成！文件: ' + task.processedFiles + ' 个，失败文件: ' + failedCount + '；资产: ' + (task.processedAssets || 0) + ' 个，失败资产: ' + failedAssets);
                 } else {
-                    alert(`备份完成！共上传文件 ${task.totalFiles} 个，资产 ${task.totalAssets || 0} 个`);
+                    alert('备份完成！共上传文件 ' + task.totalFiles + ' 个，资产 ' + (task.totalAssets || 0) + ' 个');
                 }
                 location.reload();
             } else if (task.status === 'failed') {
                 clearInterval(interval);
-                alert(`备份失败: ${task.error}`);
+                alert('备份失败: ' + task.error);
             } else if (task.status === 'processing' || task.status === 'queued') {
-                console.log(`任务处理中...`);
+                console.log('任务处理中...');
             }
         }, 3000);
     }
@@ -1995,7 +1995,7 @@ export const clientJS = `
     const saveCustomProjects = safeGet('saveCustomProjects');
     if (openCustomProject) openCustomProject.addEventListener('click', () => {
         const list = safeGet('customProjectList');
-        if (list) list.innerHTML = githubProjects.concat(dockerProjects).map(p => `<div class="project-item"><input type="checkbox" value="${p.name}"> ${p.name}</div>`).join('');
+        if (list) list.innerHTML = githubProjects.concat(dockerProjects).map(p => '<div class="project-item"><input type="checkbox" value="' + p.name + '"> ' + p.name + '</div>').join('');
         if (customProjectModal) customProjectModal.style.display = 'flex';
     });
     if (closeCustomModal) closeCustomModal.addEventListener('click', () => { if (customProjectModal) customProjectModal.style.display = 'none'; });
