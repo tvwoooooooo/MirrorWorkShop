@@ -1277,7 +1277,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 12. 两步备份流程函数
+    // 12. 两步备份流程函数（已修复 Docker 支持）
     // ============================================================================
 
     const backupModal = safeGet('backupContentModal');
@@ -1310,13 +1310,13 @@ export const clientJS = `
         backupTypeIcon.className = project.type === 'github' ? 'fab fa-github' : 'fab fa-docker';
 
         fileTreeContainer.innerHTML = '<div class="loading-indicator">加载文件列表中...</div>';
-        releasesContainer.innerHTML = '<div class="loading-indicator">加载 Releases 中...</div>';
+        releasesContainer.innerHTML = '<div class="loading-indicator">加载内容中...</div>';
         selectedFiles.clear();
         selectedAssets.clear();
         if (selectAllFiles) selectAllFiles.checked = true;
         if (selectAllReleases) selectAllReleases.checked = false;
         if (selectedFilesCount) selectedFilesCount.innerText = '全部文件';
-        if (selectedReleasesCount) selectedReleasesCount.innerText = '0 个版本';
+        if (selectedReleasesCount) selectedReleasesCount.innerText = '0 个文件';
 
         if (project.type === 'github') {
             // 显示文件树区域
@@ -1348,7 +1348,8 @@ export const clientJS = `
             try {
                 const res = await fetch(\`/api/docker-tags?owner=\${project.owner}&repo=\${project.repo}\`);
                 if (!res.ok) throw new Error('获取 Docker tags 失败');
-                const tags = await res.json(); // 返回 tags 数组
+                const tags = await res.json(); // 期望返回 tags 数组
+                // 转换为与 releases 兼容的格式
                 backupReleases = tags.map(tag => ({
                     tag: tag.name,
                     date: tag.lastUpdate,
@@ -1356,7 +1357,7 @@ export const clientJS = `
                         name: tag.name,
                         size: tag.size,
                         digest: tag.digest,
-                        url: tag.name // 临时用 name 作为 url，方便选中逻辑
+                        url: tag.name // 用 tag name 作为 url，方便选中
                     }]
                 }));
                 renderReleases(); // 复用 releases 渲染
@@ -1405,7 +1406,7 @@ export const clientJS = `
 
     function renderReleases() {
         if (!backupReleases || backupReleases.length === 0) {
-            releasesContainer.innerHTML = '<div class="empty-state">无 Releases/Tags</div>';
+            releasesContainer.innerHTML = '<div class="empty-state">无内容</div>';
             return;
         }
         let html = '';
@@ -1413,9 +1414,9 @@ export const clientJS = `
             const hasAssets = release.assets && release.assets.length > 0;
             const assetsHtml = hasAssets ? release.assets.map(asset => \`
                 <div class="asset-item">
-                    <input type="checkbox" class="asset-checkbox" data-release-idx="\${idx}" data-asset-url="\${asset.url}" data-asset-name="\${asset.name}">
+                    <input type="checkbox" class="asset-checkbox" data-release-idx="\${idx}" data-asset-url="\${asset.url || asset.name}" data-asset-name="\${asset.name}">
                     <span class="asset-name">\${asset.name}</span>
-                    <span class="asset-size">\${(asset.size/1024).toFixed(2)} KB</span>
+                    <span class="asset-size">\${asset.size ? (asset.size/1024).toFixed(2) + ' KB' : ''}</span>
                 </div>
             \`).join('') : '<div class="asset-item" style="color:#94a3b8;">无资产文件</div>';
             
@@ -1464,7 +1465,9 @@ export const clientJS = `
     function updateSelectedAssets() {
         selectedAssets.clear();
         document.querySelectorAll('.asset-checkbox:checked').forEach(cb => {
-            selectedAssets.add(cb.dataset.assetUrl);
+            // 对于 GitHub assets，url 是真实 URL；对于 Docker tags，url 是 tag name
+            const url = cb.dataset.assetUrl;
+            selectedAssets.add(url);
         });
         const count = selectedAssets.size;
         if (selectedReleasesCount) selectedReleasesCount.innerText = \`\${count} 个文件\`;
@@ -1490,7 +1493,7 @@ export const clientJS = `
     if (backupNextBtn) {
         backupNextBtn.addEventListener('click', () => {
             if (selectedFiles.size === 0 && selectedAssets.size === 0) {
-                alert('请至少选择一个文件或 Release 资产');
+                alert('请至少选择一个文件或资产');
                 return;
             }
             backupStep1.classList.add('hide');
@@ -1575,10 +1578,7 @@ export const clientJS = `
                 };
             } else if (backupProjectData.type === 'docker') {
                 // 从 selectedAssets 中提取选中的 tag 名称
-                const selectedTags = Array.from(selectedAssets).map(url => {
-                    // url 实际上存储的是 tag name
-                    return url;
-                }).filter(Boolean);
+                const selectedTags = Array.from(selectedAssets).map(url => url); // url 就是 tag name
                 
                 payload = {
                     type: 'docker',
@@ -1933,11 +1933,10 @@ export const clientJS = `
                 const failedCount = task.failedFiles ? task.failedFiles.length : 0;
                 const failedAssets = task.failedAssets ? task.failedAssets.length : 0;
                 const failedLayers = task.failedLayers ? task.failedLayers.length : 0;
-                const totalFailed = failedCount + failedAssets + failedLayers;
-                if (totalFailed > 0) {
-                    alert(\`备份完成！文件: \${task.processedFiles || 0} 个，失败文件: \${failedCount}；资产: \${task.processedAssets || 0} 个，失败资产: \${failedAssets}；层: \${task.processedLayers || 0} 个，失败层: \${failedLayers}\`);
+                if (failedCount > 0 || failedAssets > 0 || failedLayers > 0) {
+                    alert(\`备份完成！文件: \${task.processedFiles || 0} 个，失败文件: \${failedCount}；资产: \${task.processedAssets || 0} 个，失败资产: \${failedAssets}；Layers: \${task.processedLayers || 0} 个，失败Layers: \${failedLayers}\`);
                 } else {
-                    alert(\`备份完成！共上传文件 \${task.totalFiles || 0} 个，资产 \${task.totalAssets || 0} 个，层 \${task.totalLayers || 0} 个\`);
+                    alert(\`备份完成！共上传文件 \${task.totalFiles || 0} 个，资产 \${task.totalAssets || 0} 个，Layers \${task.totalLayers || 0} 个\`);
                 }
                 location.reload();
             } else if (task.status === 'failed') {
