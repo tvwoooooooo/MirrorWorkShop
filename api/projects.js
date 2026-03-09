@@ -1,6 +1,7 @@
 // api/projects.js
 import { getRepoFileTree } from '../lib/github.js';
 import { fetchWithRetry } from '../lib/github.js';
+import { getDockerTags } from '../lib/docker.js';
 import { createMasterTask } from '../lib/taskManager.js';
 import { ensureProjectsTable } from '../lib/d1.js';
 
@@ -126,4 +127,74 @@ export async function handleDetailedProject(request, env) {
     const taskId = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
     await createMasterTask(env, taskId, owner, repo, bucketId, files || [], assets || []);
     return Response.json({ success: true, taskId, message: '详细备份任务已提交，正在处理' });
+}
+
+// ==================== Docker 相关接口 ====================
+
+/**
+ * 获取 Docker 镜像的 tags 列表
+ */
+export async function handleDockerTags(request, env) {
+    const url = new URL(request.url);
+    const repo = url.searchParams.get('repo'); // 格式如 library/alpine 或 username/repo
+    const page = parseInt(url.searchParams.get('page')) || 1;
+    const perPage = parseInt(url.searchParams.get('perPage')) || 30;
+
+    if (!repo) {
+        return Response.json({ error: 'Missing repo parameter' }, { status: 400 });
+    }
+
+    try {
+        const result = await getDockerTags(repo, env);
+        return Response.json({
+            items: result.items,
+            total: result.total,
+            page,
+            perPage,
+            logs: result.logs || []
+        });
+    } catch (error) {
+        return Response.json({ error: error.message, logs: error.logs || [] }, { status: 500 });
+    }
+}
+
+/**
+ * 处理 Docker 详细备份任务（包含用户选择的 tags）
+ */
+export async function handleDockerDetailedProject(request, env) {
+    await ensureProjectsTable(env);
+    const { type, repo, bucketId, tags } = await request.json();
+
+    if (type !== 'docker') {
+        return Response.json({ error: '类型错误，应为 docker' }, { status: 400 });
+    }
+
+    if (!repo || !bucketId || !tags || !Array.isArray(tags)) {
+        return Response.json({ error: 'Missing required fields' }, { status: 400 });
+    }
+
+    const bucket = await env.DB.prepare("SELECT id FROM buckets WHERE id = ?").bind(bucketId).first();
+    if (!bucket) {
+        return Response.json({ error: '指定的桶不存在' }, { status: 400 });
+    }
+
+    const taskId = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+
+    await env.TASKS_QUEUE.send(JSON.stringify({
+        type: 'docker-master',
+        taskId,
+        repo,
+        bucketId,
+        tags
+    }));
+
+    await env.B2_KV.put(`master:${taskId}`, JSON.stringify({
+        status: 'queued',
+        repo,
+        bucketId,
+        tagsCount: tags.length,
+        createdAt: Date.now()
+    }));
+
+    return Response.json({ success: true, taskId, message: 'Docker 备份任务已提交，正在处理' });
 }

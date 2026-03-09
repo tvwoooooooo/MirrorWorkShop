@@ -1,14 +1,12 @@
 // api/apiIndex.js
 import { handleSearch } from './search.js';
-import { handleProjects, handleProject, handleRepoTree, handleRepoReleases, handleDetailedProject } from './projects.js';
+import { handleProjects, handleProject, handleRepoTree, handleRepoReleases, handleDetailedProject, handleDockerTags, handleDockerDetailedProject } from './projects.js';
 import { handleBuckets } from './buckets.js';
 import { handleConfig } from './config.js';
 import { handleTask } from './task.js';
 import { handleQueueStatus } from '../queue.js';
 import { handleVerify } from './verify.js';
 import { handleGithubTokens, handleDockerTokens } from './tokens.js';
-import { handleDockerBackup } from './backup.js';
-import { handleDockerTags } from './docker.js';
 
 export async function handleAPI(request, env) {
   const url = new URL(request.url);
@@ -29,6 +27,13 @@ export async function handleAPI(request, env) {
   }
   if (path === 'project/detailed' && method === 'POST') {
     return handleDetailedProject(request, env);
+  }
+  // Docker 相关
+  if (path === 'docker-tags' && method === 'GET') {
+    return handleDockerTags(request, env);
+  }
+  if (path === 'docker/project/detailed' && method === 'POST') {
+    return handleDockerDetailedProject(request, env);
   }
   if (path === 'repo-tree' && method === 'GET') {
     return handleRepoTree(request, env);
@@ -56,12 +61,6 @@ export async function handleAPI(request, env) {
   }
   if (path === 'tokens/docker') {
     return handleDockerTokens(request, env);
-  }
-  if (path === 'backup/docker' && method === 'POST') {
-    return handleDockerBackup(request, env);
-  }
-  if (path === 'docker-tags' && method === 'GET') {
-    return handleDockerTags(request, env);
   }
   return new Response('API not found', { status: 404 });
 }

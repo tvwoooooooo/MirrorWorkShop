@@ -125,6 +125,34 @@ export const addProjectHTML = `
     background: #f8fafc;
     border-radius: 8px;
 }
+/* Docker tags 专用样式 */
+.tag-item {
+    border-bottom: 1px solid #f1f5f9;
+    padding: 0.5rem;
+}
+.tag-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: default;
+}
+.tag-header input[type="checkbox"] {
+    margin-right: 0.5rem;
+}
+.tag-name {
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+.tag-date {
+    color: #64748b;
+    font-size: 0.8rem;
+    margin-left: auto;
+}
+.tag-size {
+    color: #64748b;
+    font-size: 0.8rem;
+    margin-left: 1rem;
+}
 </style>
 
 <div class="card">
@@ -169,33 +197,49 @@ export const addProjectHTML = `
             <div class="modal-close" id="closeBackupModal"><i class="fas fa-times"></i></div>
         </div>
         
-        <!-- 第一步：选择文件与 Releases -->
+        <!-- 第一步：根据项目类型显示不同内容 -->
         <div id="backupStep1" class="backup-step">
             <div class="backup-header">
-                <i class="fab fa-github" id="backupTypeIcon"></i>
+                <i class="fab" id="backupTypeIcon"></i>
                 <span id="backupProjectName"></span>
             </div>
             
-            <!-- 文件树区域 -->
-            <h4 style="margin: 0.5rem 0;">代码文件</h4>
-            <div class="select-all-bar">
-                <input type="checkbox" id="selectAllFiles" checked>
-                <label for="selectAllFiles">全选所有文件</label>
-                <span style="margin-left: auto;" id="selectedFilesCount">全部文件</span>
+            <!-- GitHub 内容区域 -->
+            <div id="githubContent" class="project-type-content">
+                <!-- 文件树区域 -->
+                <h4 style="margin: 0.5rem 0;">代码文件</h4>
+                <div class="select-all-bar">
+                    <input type="checkbox" id="selectAllFiles" checked>
+                    <label for="selectAllFiles">全选所有文件</label>
+                    <span style="margin-left: auto;" id="selectedFilesCount">全部文件</span>
+                </div>
+                <div id="fileTreeContainer" class="file-tree">
+                    <div class="loading-indicator">加载文件列表中...</div>
+                </div>
+                
+                <!-- Releases 区域 -->
+                <h4 style="margin: 0.5rem 0;">Releases</h4>
+                <div class="select-all-bar">
+                    <input type="checkbox" id="selectAllReleases">
+                    <label for="selectAllReleases">全选所有 Releases 资产</label>
+                    <span style="margin-left: auto;" id="selectedReleasesCount">0 个文件</span>
+                </div>
+                <div id="releasesContainer" class="releases-container">
+                    <div class="loading-indicator">加载 Releases 中...</div>
+                </div>
             </div>
-            <div id="fileTreeContainer" class="file-tree">
-                <div class="loading-indicator">加载文件列表中...</div>
-            </div>
-            
-            <!-- Releases 区域 -->
-            <h4 style="margin: 0.5rem 0;">Releases</h4>
-            <div class="select-all-bar">
-                <input type="checkbox" id="selectAllReleases">
-                <label for="selectAllReleases">全选所有 Releases 资产</label>
-                <span style="margin-left: auto;" id="selectedReleasesCount">0 个文件</span>
-            </div>
-            <div id="releasesContainer" class="releases-container">
-                <div class="loading-indicator">加载 Releases 中...</div>
+
+            <!-- Docker 内容区域（默认隐藏） -->
+            <div id="dockerContent" class="project-type-content hide">
+                <h4 style="margin: 0.5rem 0;">镜像版本 (Tags)</h4>
+                <div class="select-all-bar">
+                    <input type="checkbox" id="selectAllTags">
+                    <label for="selectAllTags">全选所有版本</label>
+                    <span style="margin-left: auto;" id="selectedTagsCount">0 个版本</span>
+                </div>
+                <div id="tagsContainer" class="releases-container">
+                    <div class="loading-indicator">加载版本列表中...</div>
+                </div>
             </div>
         </div>
         
