@@ -53,24 +53,39 @@ export async function queueHandler(batch, env, ctx) {
         for (const tag of tags) {
           // 获取 manifest
           const manifestUrl = `https://registry-1.docker.io/v2/${repo}/manifests/${tag}`;
+          console.log(`Fetching manifest for ${repo}:${tag} from ${manifestUrl}`);
           const manifestResponse = await fetchWithDockerAuth(manifestUrl, env);
           if (!manifestResponse.ok) {
-            throw new Error(`Failed to get manifest for ${repo}:${tag}`);
+            throw new Error(`Failed to get manifest for ${repo}:${tag}: ${manifestResponse.status}`);
           }
           const manifest = await manifestResponse.json();
-          // 支持 manifest v2 和 manifest list
+          
+          // 处理 manifest list 或普通 manifest
+          let targetManifest = manifest;
           if (manifest.mediaType && manifest.mediaType.includes('manifest.list')) {
-            // 如果是 manifest list，可能需要选择平台，这里简单取第一个
+            // 如果是 manifest list，选择第一个平台（例如 linux/amd64）
+            if (!manifest.manifests || manifest.manifests.length === 0) {
+              throw new Error(`Manifest list for ${repo}:${tag} has no manifests`);
+            }
             const first = manifest.manifests[0];
             const platformManifestUrl = `https://registry-1.docker.io/v2/${repo}/manifests/${first.digest}`;
+            console.log(`Fetching platform manifest from ${platformManifestUrl}`);
             const platformResponse = await fetchWithDockerAuth(platformManifestUrl, env);
-            const platformManifest = await platformResponse.json();
-            // 处理 platformManifest 的 layers
-            await processManifestLayers(taskId, repo, bucketId, platformManifest, env);
-          } else {
-            // 普通 manifest
-            await processManifestLayers(taskId, repo, bucketId, manifest, env);
+            if (!platformResponse.ok) {
+              throw new Error(`Failed to get platform manifest for ${repo}:${tag}: ${platformResponse.status}`);
+            }
+            targetManifest = await platformResponse.json();
           }
+          
+          // 处理目标 manifest 的 layers
+          await processManifestLayers(taskId, repo, bucketId, targetManifest, env);
+        }
+        
+        // 所有 tags 处理完后，检查是否需要立即完成（如果没有层）
+        const master = await getMasterTask(env, taskId);
+        if (master.totalAssets === 0) {
+          // 没有层，直接完成
+          await completeMasterTask(env, taskId, 'completed', [], []);
         }
         message.ack();
       } catch (error) {
@@ -95,16 +110,36 @@ export async function queueHandler(batch, env, ctx) {
 
 // 辅助函数：处理 manifest 的 layers，为每个 layer 创建任务
 async function processManifestLayers(masterTaskId, repo, bucketId, manifest, env) {
-  const layers = manifest.layers || [];
+  // 尝试获取 layers（支持不同版本的 manifest）
+  let layers = [];
+  if (manifest.layers && Array.isArray(manifest.layers)) {
+    layers = manifest.layers;
+  } else if (manifest.fsLayers && Array.isArray(manifest.fsLayers)) {
+    // 兼容 schema1
+    layers = manifest.fsLayers.map(l => ({ digest: l.blobSum, size: 0 })); // schema1 可能没有 size
+  }
+  
   const totalLayers = layers.length;
+  console.log(`Manifest for ${repo} has ${totalLayers} layers`);
+  
+  if (totalLayers === 0) {
+    console.error(`No layers found in manifest for ${repo}`);
+    // 没有层，但可能是一个空镜像？我们记录失败但不影响其他 tags
+    return;
+  }
+
   // 更新 master 任务的总层数
   const master = await getMasterTask(env, masterTaskId);
+  if (!master) {
+    throw new Error(`Master task ${masterTaskId} not found`);
+  }
   const newTotal = (master.totalAssets || 0) + totalLayers;
   await updateMasterTaskProgress(env, masterTaskId, {
     totalAssets: newTotal,
     totalAssetBatches: newTotal
   });
 
+  // 发送每个 layer 任务
   for (let i = 0; i < layers.length; i++) {
     const layer = layers[i];
     const layerTask = {
@@ -113,7 +148,7 @@ async function processManifestLayers(masterTaskId, repo, bucketId, manifest, env
       repo,
       bucketId,
       digest: layer.digest,
-      size: layer.size,
+      size: layer.size || 0,
       batchIndex: i,
       totalBatches: totalLayers,
     };
