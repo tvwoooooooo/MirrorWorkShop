@@ -1151,10 +1151,10 @@ export const clientJS = `
                     const type = e.target.dataset.type;
                     const owner = e.target.dataset.owner;
                     const repo = e.target.dataset.repo;
-                    if (type === 'github') {
+                    if (type === 'github' || type === 'docker') {
                         openBackupContentModal({ name, type, owner, repo });
                     } else {
-                        alert('Docker 备份功能尚未实现');
+                        alert('未知项目类型');
                     }
                 });
             });
@@ -1318,22 +1318,51 @@ export const clientJS = `
         if (selectedFilesCount) selectedFilesCount.innerText = '全部文件';
         if (selectedReleasesCount) selectedReleasesCount.innerText = '0 个版本';
 
-        try {
-            const res = await fetch(\`/api/repo-tree?owner=\${project.owner}&repo=\${project.repo}\`);
-            if (!res.ok) throw new Error('获取文件树失败');
-            backupFileTree = await res.json();
-            renderFileTree();
-        } catch (e) {
-            fileTreeContainer.innerHTML = \`<div class="empty-state">加载失败：\${e.message}</div>\`;
-        }
-
-        try {
-            const res = await fetch(\`/api/repo-releases?owner=\${project.owner}&repo=\${project.repo}\`);
-            if (!res.ok) throw new Error('获取 Releases 失败');
-            backupReleases = await res.json();
-            renderReleases();
-        } catch (e) {
-            releasesContainer.innerHTML = \`<div class="empty-state">加载失败：\${e.message}</div>\`;
+        if (project.type === 'github') {
+            // 显示文件树区域
+            document.querySelector('#selectAllFiles').parentElement.style.display = 'flex';
+            document.querySelector('#fileTreeContainer').parentElement.style.display = 'block';
+            
+            try {
+                const res = await fetch(\`/api/repo-tree?owner=\${project.owner}&repo=\${project.repo}\`);
+                if (!res.ok) throw new Error('获取文件树失败');
+                backupFileTree = await res.json();
+                renderFileTree();
+            } catch (e) {
+                fileTreeContainer.innerHTML = \`<div class="empty-state">加载失败：\${e.message}</div>\`;
+            }
+            
+            try {
+                const res = await fetch(\`/api/repo-releases?owner=\${project.owner}&repo=\${project.repo}\`);
+                if (!res.ok) throw new Error('获取 Releases 失败');
+                backupReleases = await res.json();
+                renderReleases();
+            } catch (e) {
+                releasesContainer.innerHTML = \`<div class="empty-state">加载失败：\${e.message}</div>\`;
+            }
+        } else if (project.type === 'docker') {
+            // 隐藏文件树区域，只显示 tags
+            document.querySelector('#selectAllFiles').parentElement.style.display = 'none';
+            document.querySelector('#fileTreeContainer').parentElement.style.display = 'none';
+            
+            try {
+                const res = await fetch(\`/api/docker-tags?owner=\${project.owner}&repo=\${project.repo}\`);
+                if (!res.ok) throw new Error('获取 Docker tags 失败');
+                const tags = await res.json(); // 返回 tags 数组
+                backupReleases = tags.map(tag => ({
+                    tag: tag.name,
+                    date: tag.lastUpdate,
+                    assets: [{
+                        name: tag.name,
+                        size: tag.size,
+                        digest: tag.digest,
+                        url: tag.name // 临时用 name 作为 url，方便选中逻辑
+                    }]
+                }));
+                renderReleases(); // 复用 releases 渲染
+            } catch (e) {
+                releasesContainer.innerHTML = \`<div class="empty-state">加载失败：\${e.message}</div>\`;
+            }
         }
     }
 
@@ -1376,7 +1405,7 @@ export const clientJS = `
 
     function renderReleases() {
         if (!backupReleases || backupReleases.length === 0) {
-            releasesContainer.innerHTML = '<div class="empty-state">无 Releases</div>';
+            releasesContainer.innerHTML = '<div class="empty-state">无 Releases/Tags</div>';
             return;
         }
         let html = '';
@@ -1525,23 +1554,40 @@ export const clientJS = `
             }
             const bucketId = selectedCard.dataset.bucketId;
 
-            const files = Array.from(selectedFiles);
-            const assets = Array.from(selectedAssets).map(url => {
-                for (const release of backupReleases) {
-                    const asset = release.assets.find(a => a.url === url);
-                    if (asset) return { name: asset.name, url: asset.url, size: asset.size };
-                }
-                return null;
-            }).filter(Boolean);
-
-            const payload = {
-                type: 'github',
-                owner: backupProjectData.owner,
-                repo: backupProjectData.repo,
-                bucketId,
-                files,
-                assets
-            };
+            let payload;
+            if (backupProjectData.type === 'github') {
+                const files = Array.from(selectedFiles);
+                const assets = Array.from(selectedAssets).map(url => {
+                    for (const release of backupReleases) {
+                        const asset = release.assets.find(a => a.url === url);
+                        if (asset) return { name: asset.name, url: asset.url, size: asset.size };
+                    }
+                    return null;
+                }).filter(Boolean);
+                
+                payload = {
+                    type: 'github',
+                    owner: backupProjectData.owner,
+                    repo: backupProjectData.repo,
+                    bucketId,
+                    files,
+                    assets
+                };
+            } else if (backupProjectData.type === 'docker') {
+                // 从 selectedAssets 中提取选中的 tag 名称
+                const selectedTags = Array.from(selectedAssets).map(url => {
+                    // url 实际上存储的是 tag name
+                    return url;
+                }).filter(Boolean);
+                
+                payload = {
+                    type: 'docker',
+                    owner: backupProjectData.owner,
+                    repo: backupProjectData.repo,
+                    bucketId,
+                    tags: selectedTags
+                };
+            }
 
             try {
                 const res = await fetch(apiBase + '/project/detailed', {
@@ -1886,10 +1932,12 @@ export const clientJS = `
                 clearInterval(interval);
                 const failedCount = task.failedFiles ? task.failedFiles.length : 0;
                 const failedAssets = task.failedAssets ? task.failedAssets.length : 0;
-                if (failedCount > 0 || failedAssets > 0) {
-                    alert(\`备份完成！文件: \${task.processedFiles} 个，失败文件: \${failedCount}；资产: \${task.processedAssets || 0} 个，失败资产: \${failedAssets}\`);
+                const failedLayers = task.failedLayers ? task.failedLayers.length : 0;
+                const totalFailed = failedCount + failedAssets + failedLayers;
+                if (totalFailed > 0) {
+                    alert(\`备份完成！文件: \${task.processedFiles || 0} 个，失败文件: \${failedCount}；资产: \${task.processedAssets || 0} 个，失败资产: \${failedAssets}；层: \${task.processedLayers || 0} 个，失败层: \${failedLayers}\`);
                 } else {
-                    alert(\`备份完成！共上传文件 \${task.totalFiles} 个，资产 \${task.totalAssets || 0} 个\`);
+                    alert(\`备份完成！共上传文件 \${task.totalFiles || 0} 个，资产 \${task.totalAssets || 0} 个，层 \${task.totalLayers || 0} 个\`);
                 }
                 location.reload();
             } else if (task.status === 'failed') {
