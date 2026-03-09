@@ -8,6 +8,7 @@ import { handleQueueStatus } from '../queue.js';
 import { handleVerify } from './verify.js';
 import { handleGithubTokens, handleDockerTokens } from './tokens.js';
 import { handleDockerBackup } from './backup.js';
+import { handleDockerTags } from './docker.js';
 
 export async function handleAPI(request, env) {
   const url = new URL(request.url);
@@ -58,6 +59,9 @@ export async function handleAPI(request, env) {
   }
   if (path === 'backup/docker' && method === 'POST') {
     return handleDockerBackup(request, env);
+  }
+  if (path === 'docker-tags' && method === 'GET') {
+    return handleDockerTags(request, env);
   }
   return new Response('API not found', { status: 404 });
 }

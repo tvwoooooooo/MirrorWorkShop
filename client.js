@@ -1154,7 +1154,11 @@ export const clientJS = `
                     if (type === 'github') {
                         openBackupContentModal({ name, type, owner, repo });
                     } else {
-                        alert('Docker 备份功能尚未实现');
+                        const tag = prompt(\`请输入要备份的 Docker 镜像 \${name} 的标签 (e.g., latest):\`);
+                        if (tag) {
+                            currentProjectToBackup = { name, type, owner, repo, tag };
+                            openSelectBucketModal();
+                        }
                     }
                 });
             });
@@ -1259,19 +1263,38 @@ export const clientJS = `
                 alert('项目信息丢失');
                 return;
             }
-            const res = await fetch(apiBase + '/project', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ type: project.type, name: project.name, bucketId })
-            });
-            const result = await res.json();
-            if (result.success) {
-                alert(\`完整备份任务已提交，任务ID: \${result.taskId}\`);
-                pollTaskStatus(result.taskId);
-                selectBucketModal.style.display = 'none';
-                currentProjectToBackup = null;
+
+            if (project.type === 'docker') {
+                const res = await fetch(apiBase + '/backup/docker', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ imageName: project.name, tag: project.tag, bucketId })
+                });
+                const result = await res.json();
+                if (result.taskId) {
+                    alert(\`Docker 备份任务已提交，任务ID: \${result.taskId}\`);
+                    pollTaskStatus(result.taskId);
+                    selectBucketModal.style.display = 'none';
+                    currentProjectToBackup = null;
+                } else {
+                    alert('提交失败：' + (result.error || '未知错误'));
+                }
             } else {
-                alert('保存失败：' + (result.error || '未知错误'));
+                // This is the old logic for github
+                const res = await fetch(apiBase + '/project', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ type: project.type, name: project.name, bucketId })
+                });
+                const result = await res.json();
+                if (result.success) {
+                    alert(\`完整备份任务已提交，任务ID: \${result.taskId}\`);
+                    pollTaskStatus(result.taskId);
+                    selectBucketModal.style.display = 'none';
+                    currentProjectToBackup = null;
+                } else {
+                    alert('保存失败：' + (result.error || '未知错误'));
+                }
             }
         });
     }
