@@ -1277,7 +1277,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 12. 两步备份流程函数（已修复 Docker 支持）
+    // 12. 两步备份流程函数（增强日志版本）
     // ============================================================================
 
     const backupModal = safeGet('backupContentModal');
@@ -1324,21 +1324,21 @@ export const clientJS = `
             document.querySelector('#fileTreeContainer').parentElement.style.display = 'block';
             
             try {
-                const res = await fetch(\`/api/repo-tree?owner=\${project.owner}&repo=\${project.repo}\`);
+                const res = await fetch(`/api/repo-tree?owner=${project.owner}&repo=${project.repo}`);
                 if (!res.ok) throw new Error('获取文件树失败');
                 backupFileTree = await res.json();
                 renderFileTree();
             } catch (e) {
-                fileTreeContainer.innerHTML = \`<div class="empty-state">加载失败：\${e.message}</div>\`;
+                fileTreeContainer.innerHTML = `<div class="empty-state">加载失败：${e.message}</div>`;
             }
             
             try {
-                const res = await fetch(\`/api/repo-releases?owner=\${project.owner}&repo=\${project.repo}\`);
+                const res = await fetch(`/api/repo-releases?owner=${project.owner}&repo=${project.repo}`);
                 if (!res.ok) throw new Error('获取 Releases 失败');
                 backupReleases = await res.json();
                 renderReleases();
             } catch (e) {
-                releasesContainer.innerHTML = \`<div class="empty-state">加载失败：\${e.message}</div>\`;
+                releasesContainer.innerHTML = `<div class="empty-state">加载失败：${e.message}</div>`;
             }
         } else if (project.type === 'docker') {
             // 隐藏文件树区域，只显示 tags
@@ -1346,23 +1346,47 @@ export const clientJS = `
             document.querySelector('#fileTreeContainer').parentElement.style.display = 'none';
             
             try {
-                const res = await fetch(\`/api/docker-tags?owner=\${project.owner}&repo=\${project.repo}\`);
-                if (!res.ok) throw new Error('获取 Docker tags 失败');
-                const tags = await res.json(); // 期望返回 tags 数组
+                updateLogView([`[Docker] 开始获取 tags for ${project.owner}/${project.repo}`]);
+                const url = `/api/docker-tags?owner=${project.owner}&repo=${project.repo}`;
+                updateLogView([`[Docker] 请求 URL: ${url}`]);
+                const res = await fetch(url);
+                updateLogView([`[Docker] 响应状态: ${res.status} ${res.statusText}`]);
+                if (!res.ok) {
+                    const errorText = await res.text();
+                    updateLogView([`[Docker] 错误响应: ${errorText}`]);
+                    throw new Error('获取 Docker tags 失败');
+                }
+                const data = await res.json();
+                updateLogView([`[Docker] 原始响应数据: ${JSON.stringify(data)}`]);
+                
+                // 检查 data 是否为数组，如果不是，尝试提取 data.tags
+                let tags = data;
+                if (!Array.isArray(tags)) {
+                    updateLogView([`[Docker] 响应不是数组，尝试获取 data.tags`]);
+                    tags = data.tags;
+                    if (!tags || !Array.isArray(tags)) {
+                        updateLogView([`[Docker] data.tags 也不是数组，返回数据可能不符合预期`]);
+                        throw new Error('返回的 tags 格式不正确');
+                    }
+                }
+                updateLogView([`[Docker] 解析后 tags 数量: ${tags.length}`]);
+                
                 // 转换为与 releases 兼容的格式
                 backupReleases = tags.map(tag => ({
                     tag: tag.name,
-                    date: tag.lastUpdate,
+                    date: tag.lastUpdate || '未知',
                     assets: [{
                         name: tag.name,
-                        size: tag.size,
-                        digest: tag.digest,
+                        size: tag.size || 0,
+                        digest: tag.digest || '',
                         url: tag.name // 用 tag name 作为 url，方便选中
                     }]
                 }));
+                updateLogView([`[Docker] 转换后 backupReleases: ${JSON.stringify(backupReleases)}`]);
                 renderReleases(); // 复用 releases 渲染
             } catch (e) {
-                releasesContainer.innerHTML = \`<div class="empty-state">加载失败：\${e.message}</div>\`;
+                updateLogView([`[Docker] 捕获异常: ${e.message}`]);
+                releasesContainer.innerHTML = `<div class="empty-state">加载失败：${e.message}</div>`;
             }
         }
     }
