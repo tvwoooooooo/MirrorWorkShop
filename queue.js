@@ -1,5 +1,5 @@
 // queue.js
-import { processBatch, processAsset } from './lib/batchProcessor.js';
+import { processBatch, processAsset, processDockerLayer, processDockerManifest } from './lib/batchProcessor.js';
 import { getRepoFileTree } from './lib/github.js';
 import { createMasterTask, updateMasterTaskProgress, completeMasterTask, getMasterTask, getActiveTasks } from './lib/taskManager.js';
 
@@ -51,6 +51,22 @@ export async function queueHandler(batch, env, ctx) {
         console.error('Asset task failed', error);
         message.retry();
       }
+    } else if (task.type === 'docker-layer') {
+        try {
+            await processDockerLayer(task, env);
+            message.ack();
+        } catch (error) {
+            console.error('Docker layer task failed', error);
+            message.retry();
+        }
+    } else if (task.type === 'docker-manifest') {
+        try {
+            await processDockerManifest(task, env);
+            message.ack();
+        } catch (error) {
+            console.error('Docker manifest task failed', error);
+            message.retry();
+        }
     } else {
       message.ack();
     }
