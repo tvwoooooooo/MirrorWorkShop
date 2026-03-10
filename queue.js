@@ -154,7 +154,8 @@ async function processManifestLayers(masterTaskId, repo, bucketId, tag, manifest
     const master = await getMasterTask(env, masterTaskId);
     if (master) {
       const failedAssets = master.failedAssets || [];
-      failedAssets.push({ tag, error: 'No layers in manifest' });
+      const manifestStr = JSON.stringify(manifest);
+      failedAssets.push({ tag, error: 'No layers in manifest', manifest: manifestStr });
       await updateMasterTaskProgress(env, masterTaskId, { failedAssets });
       console.log(`[processManifestLayers] Recorded failure for ${repo}:${tag}`);
     }
