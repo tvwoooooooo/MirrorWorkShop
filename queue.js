@@ -69,7 +69,7 @@ export async function queueHandler(batch, env, ctx) {
           
           // 处理 manifest list 或普通 manifest
           let targetManifest = manifest;
-          if (manifest.mediaType && manifest.mediaType.includes('manifest.list')) {
+          if (manifest.mediaType && (manifest.mediaType.includes('manifest.list') || manifest.mediaType.includes('image.index'))) {
             console.log(`[Docker-Master] Detected manifest list for ${repo}:${tag}`);
             if (!manifest.manifests || manifest.manifests.length === 0) {
               throw new Error(`Manifest list for ${repo}:${tag} has no manifests`);
