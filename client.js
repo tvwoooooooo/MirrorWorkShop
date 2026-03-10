@@ -1828,7 +1828,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 新增：从 B2 获取元数据的辅助函数
+    // 新增：从 B2 获取元数据的辅助函数（修正了模板字符串问题）
     // ============================================================================
     async function fetchMetadataFromB2(metaPath) {
         if (!metaPath) return null;
@@ -1838,11 +1838,12 @@ export const clientJS = `
                 console.warn('bucketHostname not configured, cannot fetch metadata');
                 return null;
             }
+            // 使用字符串拼接替代模板字符串以避免解析错误
             const url = bucketHostname.endsWith('/') 
-                ? `${bucketHostname}${metaPath}` 
-                : `${bucketHostname}/${metaPath}`;
+                ? bucketHostname + metaPath 
+                : bucketHostname + '/' + metaPath;
             const res = await fetch(url);
-            if (!res.ok) throw new Error(`Failed to fetch metadata: ${res.status}`);
+            if (!res.ok) throw new Error(\`Failed to fetch metadata: \${res.status}\`);
             return await res.json();
         } catch (e) {
             console.error('fetchMetadataFromB2 error:', e);
