@@ -2,6 +2,72 @@
 export const clientJS = `
 (async function() {
     // ============================================================================
+    // 0. 添加美化样式
+    // ============================================================================
+    const style = document.createElement('style');
+    style.textContent = \`
+        .folder-row {
+            cursor: pointer;
+        }
+        .folder-row .expand-icon {
+            width: 24px;
+            text-align: center;
+            color: #64748b;
+            transition: transform 0.2s;
+            display: inline-block;
+        }
+        .folder-row.expanded .expand-icon {
+            transform: rotate(90deg);
+        }
+        .folder-icon {
+            color: #f1c40f;
+            margin-right: 1rem;
+        }
+        .file-icon {
+            color: #64748b;
+            margin-right: 1rem;
+        }
+        .folder-children {
+            margin-left: 24px;
+        }
+        .file-row {
+            display: flex;
+            align-items: center;
+            padding: 0.8rem 1.5rem;
+            border-bottom: 1px solid #e2e8f0;
+            background: white;
+        }
+        .file-row:last-child {
+            border-bottom: none;
+        }
+        .file-row .file-name {
+            flex: 1;
+            font-weight: 500;
+            margin-left: 0.5rem;
+        }
+        .file-row .file-size {
+            color: #64748b;
+            font-size: 0.85rem;
+            margin-right: 1rem;
+            min-width: 80px;
+            text-align: right;
+        }
+        .file-row .btn-download {
+            background: transparent;
+            border: none;
+            color: #1e293b;
+            cursor: pointer;
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            transition: background 0.2s;
+        }
+        .file-row .btn-download:hover {
+            background: #f1f5f9;
+        }
+    \`;
+    document.head.appendChild(style);
+
+    // ============================================================================
     // 1. 核心工具函数
     // ============================================================================
 
@@ -1836,7 +1902,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 15. 详情页加载（从 B2 获取元数据）
+    // 15. 详情页加载（从 B2 获取元数据，美化文件树）
     // ============================================================================
 
     // 格式化文件大小
@@ -1948,22 +2014,22 @@ export const clientJS = `
             return nodes.map(node => {
                 if (node.type === 'folder') {
                     return \`
-                        <div class="folder-row" style="margin-left: \${level*20}px;">
-                            <div class="folder-header" data-folder-path="\${node.path}">
-                                <i class="fas fa-folder" style="color: #64748b; width: 20px;"></i>
-                                <span class="folder-name">\${node.name}</span>
-                                <i class="fas fa-chevron-down" style="margin-left: auto; font-size: 0.8rem; color: #64748b;"></i>
-                            </div>
-                            <div class="folder-children" style="display: none;">
-                                \${renderTree(node.children, level + 1)}
-                            </div>
+                        <div class="folder-row file-row" data-path="\${node.path}">
+                            <span class="expand-icon"><i class="fas fa-chevron-right"></i></span>
+                            <i class="fas fa-folder folder-icon"></i>
+                            <span class="file-name">\${node.name}</span>
+                            <span class="file-size"></span>
+                        </div>
+                        <div class="folder-children" style="display: none;">
+                            \${renderTree(node.children, level + 1)}
                         </div>
                     \`;
                 } else {
                     const sizeStr = formatFileSize(node.size);
                     return \`
-                        <div class="file-row" style="margin-left: \${level*20}px;">
-                            <i class="far fa-file" style="color: #64748b; width: 20px;"></i>
+                        <div class="file-row" data-path="\${node.path}">
+                            <span class="expand-icon" style="visibility:hidden;"><i class="fas fa-chevron-right"></i></span>
+                            <i class="far fa-file file-icon"></i>
                             <span class="file-name">\${node.name}</span>
                             <span class="file-size">\${sizeStr}</span>
                             <button class="btn-icon btn-download" data-path="\${node.path}" data-bucket="\${versions[currentIdx].bucketId}"><i class="fas fa-download"></i></button>
@@ -1976,15 +2042,16 @@ export const clientJS = `
         const filesHtml = renderTree(fileTree);
         
         const releasesHtml = releases.map(r => \`
-            <div class="release-row">
+            <div class="release-row file-row">
+                <span class="expand-icon" style="visibility:hidden;"></span>
                 <i class="fas fa-tag release-icon"></i>
                 <div class="release-info">
                     <span class="release-tag">\${r.name}</span>
                     <span class="release-date">\${r.date || ''}</span>
                 </div>
                 <div class="release-download">
-                    <span class="file-meta">\${r.size ? formatFileSize(r.size) : '-'}</span>
-                    <button class="btn-icon btn-download" data-url="\${r.url}"><i class="fas fa-download"></i> 下载</button>
+                    <span class="file-size">\${r.size ? formatFileSize(r.size) : '-'}</span>
+                    <button class="btn-icon btn-download" data-url="\${r.url}"><i class="fas fa-download"></i></button>
                 </div>
             </div>
         \`).join('');
@@ -2013,8 +2080,10 @@ export const clientJS = `
         const tags = metaData.tags || [];
         
         const tagsHtml = tags.map(tag => \`
-            <div class="tag-row">
-                <span><i class="fas fa-tag"></i> \${tag}</span>
+            <div class="tag-row file-row">
+                <span class="expand-icon" style="visibility:hidden;"></span>
+                <i class="fas fa-tag"></i>
+                <span class="file-name">\${tag}</span>
                 <span><button class="btn-icon"><i class="fas fa-download"></i> pull</button></span>
             </div>
         \`).join('');
@@ -2068,26 +2137,23 @@ export const clientJS = `
             });
         }
         
-        // 文件列表点击事件：处理文件夹展开/折叠
+        // 文件夹展开/折叠
         const fileList = document.querySelector('.file-list');
         if (fileList) {
             fileList.addEventListener('click', (e) => {
-                const folderHeader = e.target.closest('.folder-header');
-                if (folderHeader) {
-                    const folderRow = folderHeader.closest('.folder-row');
-                    const children = folderRow?.querySelector('.folder-children');
-                    if (children) {
-                        children.style.display = children.style.display === 'none' ? 'block' : 'none';
-                        const chevron = folderHeader.querySelector('.fa-chevron-down');
-                        if (chevron) {
-                            chevron.classList.toggle('fa-chevron-up');
-                        }
+                const folderRow = e.target.closest('.folder-row');
+                if (folderRow) {
+                    const children = folderRow.nextElementSibling;
+                    if (children && children.classList.contains('folder-children')) {
+                        const isHidden = children.style.display === 'none';
+                        children.style.display = isHidden ? 'block' : 'none';
+                        folderRow.classList.toggle('expanded', isHidden);
                     }
                 }
             });
         }
         
-        // 下载按钮事件（需要实现下载逻辑）
+        // 下载按钮事件
         document.querySelectorAll('.btn-download').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -2096,7 +2162,6 @@ export const clientJS = `
                 const url = btn.dataset.url;
                 if (path && bucket) {
                     // 构造下载链接，需要后端实现 /api/download
-                    // 这里暂时提示
                     alert(\`下载文件: \${path}\`);
                 } else if (url) {
                     window.open(url, '_blank');
