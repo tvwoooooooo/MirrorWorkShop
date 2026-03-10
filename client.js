@@ -1842,7 +1842,7 @@ export const clientJS = `
     async function showDetail(type, project) {
         currentDetailProject = project;
         currentDetailType = type;
-        currentVersionIndex = 0; // 默认显示最新版本（最后一个）
+        currentVersionIndex = project.versions.length - 1; // 默认显示最新版本（最后一个）
         
         if (homeView) homeView.classList.add('hide');
         if (detailView) detailView.classList.remove('hide');
@@ -1897,14 +1897,14 @@ export const clientJS = `
     function renderGithubDetail(project, versions, currentIdx, metaData) {
         const versionDates = versions.map(v => v.date);
         const currentDate = versions[currentIdx].date;
-        const files = metaData.files || [];
+        const files = metaData.files || []; // 现在 files 是对象数组，每个有 path, key, size
         const releases = metaData.releases || [];
         
         const filesHtml = files.map(f => \`
             <div class="file-row">
                 <i class="far fa-file-code file-icon"></i>
-                <span class="file-name">\${f}</span>
-                <span class="file-meta">-</span>
+                <span class="file-name">\${f.path}</span>
+                <span class="file-meta">\${f.size ? (f.size/1024).toFixed(2) + ' KB' : '-'}</span>
             </div>
         \`).join('');
         
@@ -1916,6 +1916,7 @@ export const clientJS = `
                     <span class="release-date">\${r.date || ''}</span>
                 </div>
                 <div class="release-download">
+                    <span class="file-meta">\${r.size ? (r.size/1024).toFixed(2) + ' KB' : '-'}</span>
                     <button class="btn-icon btn-download" onclick="window.open('\${r.url}', '_blank')">下载</button>
                 </div>
             </div>
