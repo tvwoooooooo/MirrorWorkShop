@@ -122,7 +122,7 @@ export async function queueHandler(batch, env, ctx) {
         // 所有 tags 处理完后，保存项目信息到 projects 表（立即保存，即使 layer 任务尚未完成）
         const master = await getMasterTask(env, taskId);
         if (master) {
-          await saveProjectToDb(env, master, tags);
+          await saveProjectToDb(env, master, tags, null); // Docker 项目传入 tags，metaPath 为 null
         }
 
         // 检查是否有任何任务被创建
