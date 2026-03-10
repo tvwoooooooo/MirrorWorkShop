@@ -60,6 +60,9 @@ export async function queueHandler(batch, env, ctx) {
           }
           const manifest = await manifestResponse.json();
           
+          // 打印 manifest 的基本信息到日志（便于调试）
+          console.log(`Manifest for ${repo}:${tag}: schemaVersion=${manifest.schemaVersion}, mediaType=${manifest.mediaType}`);
+          
           // 处理 manifest list 或普通 manifest
           let targetManifest = manifest;
           if (manifest.mediaType && manifest.mediaType.includes('manifest.list')) {
@@ -78,7 +81,7 @@ export async function queueHandler(batch, env, ctx) {
           }
           
           // 处理目标 manifest 的 layers
-          await processManifestLayers(taskId, repo, bucketId, targetManifest, env);
+          await processManifestLayers(taskId, repo, bucketId, tag, targetManifest, env);
         }
         
         // 所有 tags 处理完后，检查是否需要立即完成（如果没有层）
@@ -109,7 +112,7 @@ export async function queueHandler(batch, env, ctx) {
 }
 
 // 辅助函数：处理 manifest 的 layers，为每个 layer 创建任务
-async function processManifestLayers(masterTaskId, repo, bucketId, manifest, env) {
+async function processManifestLayers(masterTaskId, repo, bucketId, tag, manifest, env) {
   // 尝试获取 layers（支持不同版本的 manifest）
   let layers = [];
   if (manifest.layers && Array.isArray(manifest.layers)) {
@@ -120,11 +123,17 @@ async function processManifestLayers(masterTaskId, repo, bucketId, manifest, env
   }
   
   const totalLayers = layers.length;
-  console.log(`Manifest for ${repo} has ${totalLayers} layers`);
+  console.log(`Manifest for ${repo}:${tag} has ${totalLayers} layers`);
   
   if (totalLayers === 0) {
-    console.error(`No layers found in manifest for ${repo}`);
-    // 没有层，但可能是一个空镜像？我们记录失败但不影响其他 tags
+    console.error(`No layers found in manifest for ${repo}:${tag}`);
+    // 记录失败资产，不抛出异常，避免中断其他 tags
+    const master = await getMasterTask(env, masterTaskId);
+    if (master) {
+      const failedAssets = master.failedAssets || [];
+      failedAssets.push({ tag, error: 'No layers in manifest' });
+      await updateMasterTaskProgress(env, masterTaskId, { failedAssets });
+    }
     return;
   }
 
