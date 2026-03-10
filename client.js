@@ -1827,185 +1827,59 @@ export const clientJS = `
         return card;
     }
 
-    // ============================================================================
-    // 新增：从 B2 获取元数据的辅助函数（修正了模板字符串问题）
-    // ============================================================================
-    async function fetchMetadataFromB2(metaPath) {
-        if (!metaPath) return null;
-        try {
-            const bucketHostname = config.bucketHostname || '';
-            if (!bucketHostname) {
-                console.warn('bucketHostname not configured, cannot fetch metadata');
-                return null;
-            }
-            // 使用字符串拼接替代模板字符串以避免解析错误
-            const url = bucketHostname.endsWith('/') 
-                ? bucketHostname + metaPath 
-                : bucketHostname + '/' + metaPath;
-            const res = await fetch(url);
-            if (!res.ok) throw new Error(\`Failed to fetch metadata: \${res.status}\`);
-            return await res.json();
-        } catch (e) {
-            console.error('fetchMetadataFromB2 error:', e);
-            return null;
-        }
-    }
-
-    // ============================================================================
-    // 15. 详情页展示（从 B2 读取元数据）
-    // ============================================================================
     function showDetail(type, project) {
         if (homeView) homeView.classList.add('hide');
         if (detailView) detailView.classList.remove('hide');
         let currentVersionIndex = 0;
-        
-        // 防御性检查：确保 project 和 project.versions 存在
-        if (!project || !project.versions || !Array.isArray(project.versions) || project.versions.length === 0) {
-            detailView.innerHTML = \`
-                <div class="detail-header">
-                    <button class="back-btn" id="backBtn"><i class="fas fa-arrow-left"></i> 返回列表</button>
-                    <h2><i class="\${type === 'github' ? 'fab fa-github' : 'fab fa-docker'}"></i> \${project?.name || '未知项目'}</h2>
-                </div>
-                <div class="empty-state">该项目暂无版本信息</div>
-            \`;
-            const backBtn = safeGet('backBtn');
-            if (backBtn) backBtn.addEventListener('click', () => {
-                if (detailView) detailView.classList.add('hide');
-                if (homeView) homeView.classList.remove('hide');
-            });
-            return;
-        }
-
-        const renderDetailContent = async (versionIdx) => {
+        const renderDetailContent = (versionIdx) => {
             const version = project.versions[versionIdx];
             let filesHtml = '', releasesHtml = '';
-            
             if (type === 'github') {
-                // GitHub 项目：从 B2 读取元数据
-                let metadata = null;
-                if (version && version.metaPath) {
-                    metadata = await fetchMetadataFromB2(version.metaPath);
+                filesHtml = \`<div class="file-list">\${version.files.map(f => \`<div class="file-row"><i class="far fa-file-code file-icon"></i><span class="file-name">\${f}</span><span class="file-meta">\${(Math.random()*4+1).toFixed(1)} KB</span></div>\`).join('')}</div>\`;
+                if (version.releases && version.releases.length > 0) {
+                    releasesHtml = \`<div class="section-title">Releases</div><div class="releases-list">\${version.releases.map(r => \`<div class="release-row"><i class="fas fa-tag release-icon"></i><div class="release-info"><span class="release-tag">\${r.tag}</span><span class="release-date">\${r.date}</span></div><div class="release-download"><button class="btn-icon btn-download"><i class="fas fa-download"></i> 下载</button></div></div>\`).join('')}</div>\`;
                 }
-                
-                filesHtml = \`<div class="file-list">\`;
-                if (metadata && metadata.files && metadata.files.length > 0) {
-                    filesHtml += metadata.files.map(f => \`
-                        <div class="file-row">
-                            <i class="far fa-file-code file-icon"></i>
-                            <span class="file-name">\${f}</span>
-                            <span class="file-meta">\${(Math.random()*4+1).toFixed(1)} KB</span>
-                        </div>
-                    \`).join('');
-                } else {
-                    filesHtml += \`<div class="file-row"><span class="file-name">暂无文件</span></div>\`;
-                }
-                filesHtml += \`</div>\`;
-                releasesHtml = ''; // 可扩展
             } else {
-                // Docker 项目：显示所有已备份的 tags
-                filesHtml = \`<div class="docker-tag-list">\`;
-                // 遍历所有版本（即所有 tag）
-                project.versions.forEach(v => {
-                    if (v && v.tag) {
-                        filesHtml += \`
-                            <div class="tag-row">
-                                <span><i class="fas fa-tag"></i> \${v.tag}</span>
-                                <span>\${v.date || ''}</span>
-                                <span><button class="btn-icon"><i class="fas fa-download"></i> pull</button></span>
-                            </div>
-                        \`;
-                    }
-                });
-                if (project.versions.length === 0) {
-                    filesHtml += \`<div class="tag-row">暂无版本</div>\`;
+                filesHtml = \`<div class="docker-tag-list">\${version.tags.map(tag => \`<div class="tag-row"><span><i class="fas fa-tag"></i> \${tag}</span><span><button class="btn-icon"><i class="fas fa-download"></i> pull</button><button class="btn-icon btn-stream"><i class="fas fa-water"></i> 流式</button></span></div>\`).join('')}</div>\`;
+                if (version.releases && version.releases.length > 0) {
+                    releasesHtml = \`<div class="section-title">版本发布</div><div class="releases-list">\${version.releases.map(r => \`<div class="release-row"><i class="fas fa-tag release-icon"></i><div class="release-info"><span class="release-tag">\${r.tag}</span><span class="release-date">\${r.date}</span>\${r.digest ? '<span style="font-size:0.8rem;">' + r.digest + '</span>' : ''}</div><div class="release-download"><button class="btn-icon btn-download"><i class="fas fa-download"></i> pull</button></div></div>\`).join('')}</div>\`;
                 }
-                filesHtml += \`</div>\`;
             }
             return { filesHtml, releasesHtml };
         };
-        
-        const buildFullHtml = async (versionIdx) => {
-            const { filesHtml, releasesHtml } = await renderDetailContent(versionIdx);
-            let versionDates;
-            if (type === 'github') {
-                versionDates = project.versions.map(v => v.date);
-            } else {
-                // Docker 项目暂时不支持版本切换，但仍生成日期列表用于占位
-                versionDates = project.versions.map(v => v.tag);
-            }
-            const currentVersion = type === 'github' ? project.versions[versionIdx].date : project.versions[versionIdx].tag;
-            
-            return \`
-                <div class="detail-header">
-                    <button class="back-btn" id="backBtn"><i class="fas fa-arrow-left"></i> 返回列表</button>
-                    <h2><i class="\${type === 'github' ? 'fab fa-github' : 'fab fa-docker'}"></i> \${project.name}</h2>
-                    <div class="version-selector" id="versionSelector">
-                        <span id="selectedVersion">\${currentVersion}</span>
-                        <i class="fas fa-chevron-down"></i>
-                        <div class="version-dropdown" id="versionDropdown">
-                            \${versionDates.map((date, idx) => \`
-                                <div class="version-item \${idx === versionIdx ? 'current' : ''}" data-version-index="\${idx}">\${date}</div>
-                            \`).join('')}
-                        </div>
-                    </div>
-                </div>
-                \${filesHtml}
-                \${releasesHtml || ''}
-                <p style="margin-top:1rem; color:#475569;">
-                    <i class="fas fa-info-circle"></i> 
-                    \${type === 'github' ? '文件列表和Releases随版本切换' : '标签列表'}
-                </p>
-            \`;
+        const buildFullHtml = (versionIdx) => {
+            const { filesHtml, releasesHtml } = renderDetailContent(versionIdx);
+            const versionDates = project.versions.map(v => v.date);
+            const currentDate = project.versions[versionIdx].date;
+            return \`<div class="detail-header"><button class="back-btn" id="backBtn"><i class="fas fa-arrow-left"></i> 返回列表</button><h2><i class="\${type === 'github' ? 'fab fa-github' : 'fab fa-docker'}"></i> \${project.name}</h2><div class="version-selector" id="versionSelector"><span id="selectedVersion">\${currentDate}</span><i class="fas fa-chevron-down"></i><div class="version-dropdown" id="versionDropdown">\${versionDates.map((date, idx) => \`<div class="version-item \${idx === versionIdx ? 'current' : ''}" data-version-index="\${idx}">\${date}</div>\`).join('')}</div></div></div>\${filesHtml}\${releasesHtml || ''}<p style="margin-top:1rem; color:#475569;"><i class="fas fa-info-circle"></i> \${type === 'github' ? '文件列表和Releases随版本切换' : '标签列表和Releases随版本切换'}</p>\`;
         };
-        
-        detailView.innerHTML = '<div class="loading-indicator">加载详情中...</div>';
-        
-        (async () => {
-            detailView.innerHTML = await buildFullHtml(currentVersionIndex);
-            
-            const backBtn = safeGet('backBtn');
-            if (backBtn) backBtn.addEventListener('click', () => {
-                if (detailView) detailView.classList.add('hide');
-                if (homeView) homeView.classList.remove('hide');
-            });
-            
-            const selector = safeGet('versionSelector');
-            const dropdown = safeGet('versionDropdown');
-            if (selector) {
-                selector.addEventListener('click', (e) => {
+        if (detailView) detailView.innerHTML = buildFullHtml(currentVersionIndex);
+        const backBtn = safeGet('backBtn');
+        if (backBtn) backBtn.addEventListener('click', () => { if (detailView) detailView.classList.add('hide'); if (homeView) homeView.classList.remove('hide'); });
+        const selector = safeGet('versionSelector');
+        const dropdown = safeGet('versionDropdown');
+        if (selector) {
+            selector.addEventListener('click', (e) => { e.stopPropagation(); if (dropdown) dropdown.classList.toggle('show'); });
+        }
+        if (dropdown) {
+            dropdown.querySelectorAll('.version-item').forEach(item => {
+                item.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    if (dropdown) dropdown.classList.toggle('show');
+                    const idx = parseInt(item.dataset.versionIndex);
+                    if (idx !== currentVersionIndex) {
+                        currentVersionIndex = idx;
+                        if (detailView) detailView.innerHTML = buildFullHtml(currentVersionIndex);
+                        showDetail(type, project);
+                    }
+                    if (dropdown) dropdown.classList.remove('show');
                 });
-            }
-            
-            if (dropdown) {
-                dropdown.querySelectorAll('.version-item').forEach(item => {
-                    item.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        const idx = parseInt(item.dataset.versionIndex);
-                        if (idx !== currentVersionIndex) {
-                            currentVersionIndex = idx;
-                            (async () => {
-                                detailView.innerHTML = await buildFullHtml(currentVersionIndex);
-                                // 重新绑定事件
-                                showDetail(type, project);
-                            })();
-                        }
-                        if (dropdown) dropdown.classList.remove('show');
-                    });
-                });
-            }
-            
-            document.addEventListener('click', function closeDropdown(e) {
-                if (selector && !selector.contains(e.target) && dropdown) {
-                    dropdown.classList.remove('show');
-                }
-            }, { once: true });
-        })();
+            });
+        }
+        document.addEventListener('click', function closeDropdown(e) { if (selector && !selector.contains(e.target) && dropdown) dropdown.classList.remove('show'); }, { once: true });
     }
 
     // ============================================================================
-    // 16. 悬浮窗（Releases）保持不变
+    // 15. 悬浮窗（Releases）
     // ============================================================================
 
     const popup = safeGet('releasesPopup');
@@ -2095,7 +1969,7 @@ export const clientJS = `
     if (popup) popup.addEventListener('click', (e) => { if (e.target === popup) popup.style.display = 'none'; });
 
     // ============================================================================
-    // 17. 标签切换
+    // 16. 标签切换
     // ============================================================================
 
     function setActiveTab(tabId) {
@@ -2118,7 +1992,7 @@ export const clientJS = `
     tabs.forEach(tab => tab.addEventListener('click', () => setActiveTab(tab.dataset.tab)));
 
     // ============================================================================
-    // 18. 任务轮询
+    // 17. 任务轮询
     // ============================================================================
 
     function pollTaskStatus(taskId) {
@@ -2145,7 +2019,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 19. 事件绑定（登录等）
+    // 18. 事件绑定（登录等）
     // ============================================================================
 
     if (loginBtn) loginBtn.addEventListener('click', () => { if (loginModal) loginModal.style.display = 'flex'; });
@@ -2193,7 +2067,7 @@ export const clientJS = `
     });
 
     // ============================================================================
-    // 20. 日志挂件
+    // 19. 日志挂件
     // ============================================================================
     const logFab = safeGet('log-widget-fab');
     const logBadge = safeGet('log-widget-badge');
@@ -2206,10 +2080,12 @@ export const clientJS = `
         
         const isScrolledToBottom = logContainer.scrollHeight - logContainer.clientHeight <= logContainer.scrollTop + 5;
 
+        // 只追加新的、不存在的日志
         const newLogMessages = logs.filter(log => !globalLogs.includes(log));
         if (newLogMessages.length > 0) {
             globalLogs.push(...newLogMessages);
         }
+        // 始终用最新的全局日志更新视图
         if(logContainer) logContainer.textContent = globalLogs.join('\\n');
 
         if (logModal.style.display !== 'flex' && newLogMessages.length > 0) {
@@ -2225,6 +2101,7 @@ export const clientJS = `
         }
     }
     
+    // 清空日志
     function clearLogs() {
         globalLogs = [];
         newLogCount = 0;
@@ -2259,7 +2136,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 21. 初始化
+    // 20. 初始化
     // ============================================================================
 
     await loadData();
