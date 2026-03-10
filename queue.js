@@ -130,7 +130,11 @@ export async function queueHandler(batch, env, ctx) {
         if (master) {
           // 从 metadata 中获取 tags
           const tagsFromMetadata = master.metadata?.tags || [];
-          await saveProjectToDb(env, master, tagsFromMetadata);
+          try {
+            await saveProjectToDb(env, master, tagsFromMetadata);
+          } catch (e) {
+            console.error(`[Docker-Master] Failed to save project metadata for task ${taskId}:`, e);
+          }
         }
 
         // 检查是否有任何任务被创建
