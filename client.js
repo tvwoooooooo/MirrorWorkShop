@@ -1839,6 +1839,48 @@ export const clientJS = `
     // 15. 详情页加载（从 B2 获取元数据）
     // ============================================================================
 
+    // 格式化文件大小
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    // 构建文件树
+    function buildFileTree(files) {
+        const tree = [];
+        const map = {};
+        files.forEach(f => {
+            const parts = f.path.split('/');
+            let current = tree;
+            let currentPath = '';
+            for (let i = 0; i < parts.length; i++) {
+                const part = parts[i];
+                currentPath += (currentPath ? '/' : '') + part;
+                let node = current.find(n => n.name === part && n.type === (i === parts.length - 1 ? 'file' : 'folder'));
+                if (!node) {
+                    node = {
+                        name: part,
+                        type: i === parts.length - 1 ? 'file' : 'folder',
+                        path: currentPath,
+                        size: i === parts.length - 1 ? f.size : 0,
+                        children: i === parts.length - 1 ? null : []
+                    };
+                    current.push(node);
+                    if (node.type === 'folder') {
+                        map[currentPath] = node.children;
+                    }
+                }
+                if (node.type === 'folder') {
+                    current = node.children;
+                }
+            }
+        });
+        return tree;
+    }
+
     async function showDetail(type, project) {
         currentDetailProject = project;
         currentDetailType = type;
@@ -1897,16 +1939,40 @@ export const clientJS = `
     function renderGithubDetail(project, versions, currentIdx, metaData) {
         const versionDates = versions.map(v => v.date);
         const currentDate = versions[currentIdx].date;
-        const files = metaData.files || []; // 现在 files 是对象数组，每个有 path, key, size
+        const files = metaData.files || [];
         const releases = metaData.releases || [];
         
-        const filesHtml = files.map(f => \`
-            <div class="file-row">
-                <i class="far fa-file-code file-icon"></i>
-                <span class="file-name">\${f.path}</span>
-                <span class="file-meta">\${f.size ? (f.size/1024).toFixed(2) + ' KB' : '-'}</span>
-            </div>
-        \`).join('');
+        const fileTree = buildFileTree(files);
+        
+        function renderTree(nodes, level = 0) {
+            return nodes.map(node => {
+                if (node.type === 'folder') {
+                    return \`
+                        <div class="folder-item" style="margin-left: \${level*20}px;">
+                            <div class="folder-header" onclick="window.toggleFolder(this)">
+                                <i class="fas fa-folder"></i>
+                                <span class="folder-name">\${node.name}</span>
+                            </div>
+                            <div class="folder-children" style="display: none;">
+                                \${renderTree(node.children, level + 1)}
+                            </div>
+                        </div>
+                    \`;
+                } else {
+                    const sizeStr = formatFileSize(node.size);
+                    return \`
+                        <div class="file-item" style="margin-left: \${level*20}px;">
+                            <i class="far fa-file"></i>
+                            <span class="file-name">\${node.name}</span>
+                            <span class="file-size">\${sizeStr}</span>
+                            <button class="btn-icon btn-download" data-path="\${node.path}" data-bucket="\${versions[currentIdx].bucketId}"><i class="fas fa-download"></i></button>
+                        </div>
+                    \`;
+                }
+            }).join('');
+        }
+        
+        const filesHtml = renderTree(fileTree);
         
         const releasesHtml = releases.map(r => \`
             <div class="release-row">
@@ -1916,8 +1982,8 @@ export const clientJS = `
                     <span class="release-date">\${r.date || ''}</span>
                 </div>
                 <div class="release-download">
-                    <span class="file-meta">\${r.size ? (r.size/1024).toFixed(2) + ' KB' : '-'}</span>
-                    <button class="btn-icon btn-download" onclick="window.open('\${r.url}', '_blank')">下载</button>
+                    <span class="file-meta">\${r.size ? formatFileSize(r.size) : '-'}</span>
+                    <button class="btn-icon btn-download" data-url="\${r.url}"><i class="fas fa-download"></i> 下载</button>
                 </div>
             </div>
         \`).join('');
@@ -1925,17 +1991,15 @@ export const clientJS = `
         return \`
             <div class="detail-header">
                 <button class="back-btn" id="backBtn"><i class="fas fa-arrow-left"></i> 返回列表</button>
-                <h2><i class="fab fa-github"></i> \${project.name}</h2>
                 <div class="version-selector" id="versionSelector">
                     <span id="selectedVersion">\${currentDate}</span>
                     <i class="fas fa-chevron-down"></i>
                     <div class="version-dropdown" id="versionDropdown">
-                        \${versionDates.map((date, idx) => \`
-                            <div class="version-item \${idx === currentIdx ? 'current' : ''}" data-version-index="\${idx}">\${date}</div>
-                        \`).join('')}
+                        \${versionDates.map((date, idx) => \`<div class="version-item \${idx === currentIdx ? 'current' : ''}" data-version-index="\${idx}">\${date}</div>\`).join('')}
                     </div>
                 </div>
             </div>
+            <h2><i class="fab fa-github"></i> \${project.name}</h2>
             <div class="file-list">\${filesHtml}</div>
             \${releasesHtml ? '<div class="section-title">Releases</div>' + '<div class="releases-list">' + releasesHtml + '</div>' : ''}
             <p style="margin-top:1rem; color:#475569;"><i class="fas fa-info-circle"></i> 文件列表和Releases随版本切换</p>
@@ -1957,17 +2021,15 @@ export const clientJS = `
         return \`
             <div class="detail-header">
                 <button class="back-btn" id="backBtn"><i class="fas fa-arrow-left"></i> 返回列表</button>
-                <h2><i class="fab fa-docker"></i> \${project.name}</h2>
                 <div class="version-selector" id="versionSelector">
                     <span id="selectedVersion">\${currentDate}</span>
                     <i class="fas fa-chevron-down"></i>
                     <div class="version-dropdown" id="versionDropdown">
-                        \${versionDates.map((date, idx) => \`
-                            <div class="version-item \${idx === currentIdx ? 'current' : ''}" data-version-index="\${idx}">\${date}</div>
-                        \`).join('')}
+                        \${versionDates.map((date, idx) => \`<div class="version-item \${idx === currentIdx ? 'current' : ''}" data-version-index="\${idx}">\${date}</div>\`).join('')}
                     </div>
                 </div>
             </div>
+            <h2><i class="fab fa-docker"></i> \${project.name}</h2>
             <div class="docker-tag-list">\${tagsHtml}</div>
             <p style="margin-top:1rem; color:#475569;"><i class="fas fa-info-circle"></i> 标签列表随版本切换</p>
         \`;
@@ -2004,6 +2066,37 @@ export const clientJS = `
                 });
             });
         }
+        
+        // 添加文件夹展开/折叠事件委托
+        const fileList = document.querySelector('.file-list');
+        if (fileList) {
+            fileList.addEventListener('click', (e) => {
+                const folderHeader = e.target.closest('.folder-header');
+                if (folderHeader) {
+                    const children = folderHeader.nextElementSibling;
+                    if (children && children.classList.contains('folder-children')) {
+                        children.style.display = children.style.display === 'none' ? 'block' : 'none';
+                    }
+                }
+            });
+        }
+        
+        // 下载按钮事件（需要实现下载逻辑）
+        document.querySelectorAll('.btn-download').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const path = btn.dataset.path;
+                const bucket = btn.dataset.bucket;
+                const url = btn.dataset.url;
+                if (path && bucket) {
+                    // 构造下载链接，需要后端实现 /api/download
+                    // 这里暂时提示
+                    alert(\`下载文件: \${path}\`);
+                } else if (url) {
+                    window.open(url, '_blank');
+                }
+            });
+        });
         
         document.addEventListener('click', function closeDropdown(e) {
             if (selector && !selector.contains(e.target) && dropdown) {
