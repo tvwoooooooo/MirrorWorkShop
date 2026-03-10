@@ -1,7 +1,7 @@
 // queue.js
 import { processBatch, processAsset, processDockerLayer, getB2Client, uploadFile } from './lib/batchProcessor.js';
 import { getRepoFileTree } from './lib/github.js';
-import { createMasterTask, updateMasterTaskProgress, completeMasterTask, getMasterTask, getActiveTasks } from './lib/taskManager.js';
+import { createMasterTask, updateMasterTaskProgress, completeMasterTask, getMasterTask, getActiveTasks, saveProjectToDb } from './lib/taskManager.js';
 import { fetchWithDockerAuth } from './lib/docker.js';
 
 export async function queueHandler(batch, env, ctx) {
@@ -64,8 +64,6 @@ export async function queueHandler(batch, env, ctx) {
           
           // 打印 manifest 结构（调试用）
           console.log(`[Docker-Master] Manifest for ${repo}:${tag}: schemaVersion=${manifest.schemaVersion}, mediaType=${manifest.mediaType}`);
-          // 可选：打印完整 manifest（小心日志过大）
-          // console.log(JSON.stringify(manifest, null, 2));
           
           // 处理 manifest list 或普通 manifest
           let targetManifest = manifest;
@@ -121,14 +119,20 @@ export async function queueHandler(batch, env, ctx) {
           await processManifestLayers(taskId, repo, bucketId, tag, targetManifest, env);
         }
         
-        // 所有 tags 处理完后，检查是否有任何任务被创建
+        // 所有 tags 处理完后，保存项目信息到 projects 表（立即保存，即使 layer 任务尚未完成）
         const master = await getMasterTask(env, taskId);
-        if (master.totalAssets === 0) {
+        if (master) {
+          await saveProjectToDb(env, master, tags);
+        }
+
+        // 检查是否有任何任务被创建
+        const updatedMaster = await getMasterTask(env, taskId);
+        if (updatedMaster.totalAssets === 0) {
           // 没有创建任何 layer 任务
-          if (master.failedAssets && master.failedAssets.length > 0) {
+          if (updatedMaster.failedAssets && updatedMaster.failedAssets.length > 0) {
             // 有失败记录但没有任务，标记为失败
             console.log(`[Docker-Master] No layers created and have failures, marking as failed`);
-            await completeMasterTask(env, taskId, 'failed', [], master.failedAssets);
+            await completeMasterTask(env, taskId, 'failed', [], updatedMaster.failedAssets);
           } else {
             // 没有任何任务也没有失败（不应该发生），标记为 completed
             console.log(`[Docker-Master] No layers created and no failures, marking as completed (empty)`);
@@ -136,6 +140,7 @@ export async function queueHandler(batch, env, ctx) {
           }
         }
         // 如果有 layers 被创建，则由各个 layer 任务驱动完成
+
         message.ack();
       } catch (error) {
         console.error('[Docker-Master] Unhandled error:', error);
