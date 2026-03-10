@@ -1948,10 +1948,11 @@ export const clientJS = `
             return nodes.map(node => {
                 if (node.type === 'folder') {
                     return \`
-                        <div class="folder-item" style="margin-left: \${level*20}px;">
-                            <div class="folder-header" onclick="window.toggleFolder(this)">
-                                <i class="fas fa-folder"></i>
+                        <div class="folder-row" style="margin-left: \${level*20}px;">
+                            <div class="folder-header" data-folder-path="\${node.path}">
+                                <i class="fas fa-folder" style="color: #64748b; width: 20px;"></i>
                                 <span class="folder-name">\${node.name}</span>
+                                <i class="fas fa-chevron-down" style="margin-left: auto; font-size: 0.8rem; color: #64748b;"></i>
                             </div>
                             <div class="folder-children" style="display: none;">
                                 \${renderTree(node.children, level + 1)}
@@ -1961,8 +1962,8 @@ export const clientJS = `
                 } else {
                     const sizeStr = formatFileSize(node.size);
                     return \`
-                        <div class="file-item" style="margin-left: \${level*20}px;">
-                            <i class="far fa-file"></i>
+                        <div class="file-row" style="margin-left: \${level*20}px;">
+                            <i class="far fa-file" style="color: #64748b; width: 20px;"></i>
                             <span class="file-name">\${node.name}</span>
                             <span class="file-size">\${sizeStr}</span>
                             <button class="btn-icon btn-download" data-path="\${node.path}" data-bucket="\${versions[currentIdx].bucketId}"><i class="fas fa-download"></i></button>
@@ -2067,15 +2068,20 @@ export const clientJS = `
             });
         }
         
-        // 添加文件夹展开/折叠事件委托
+        // 文件列表点击事件：处理文件夹展开/折叠
         const fileList = document.querySelector('.file-list');
         if (fileList) {
             fileList.addEventListener('click', (e) => {
                 const folderHeader = e.target.closest('.folder-header');
                 if (folderHeader) {
-                    const children = folderHeader.nextElementSibling;
-                    if (children && children.classList.contains('folder-children')) {
+                    const folderRow = folderHeader.closest('.folder-row');
+                    const children = folderRow?.querySelector('.folder-children');
+                    if (children) {
                         children.style.display = children.style.display === 'none' ? 'block' : 'none';
+                        const chevron = folderHeader.querySelector('.fa-chevron-down');
+                        if (chevron) {
+                            chevron.classList.toggle('fa-chevron-up');
+                        }
                     }
                 }
             });
