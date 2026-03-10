@@ -1851,51 +1851,74 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 15. 详情页展示（修改为从 B2 读取元数据）
+    // 15. 详情页展示（从 B2 读取元数据）
     // ============================================================================
     function showDetail(type, project) {
         if (homeView) homeView.classList.add('hide');
         if (detailView) detailView.classList.remove('hide');
         let currentVersionIndex = 0;
         
+        // 防御性检查：确保 project 和 project.versions 存在
+        if (!project || !project.versions || !Array.isArray(project.versions) || project.versions.length === 0) {
+            detailView.innerHTML = \`
+                <div class="detail-header">
+                    <button class="back-btn" id="backBtn"><i class="fas fa-arrow-left"></i> 返回列表</button>
+                    <h2><i class="\${type === 'github' ? 'fab fa-github' : 'fab fa-docker'}"></i> \${project?.name || '未知项目'}</h2>
+                </div>
+                <div class="empty-state">该项目暂无版本信息</div>
+            \`;
+            const backBtn = safeGet('backBtn');
+            if (backBtn) backBtn.addEventListener('click', () => {
+                if (detailView) detailView.classList.add('hide');
+                if (homeView) homeView.classList.remove('hide');
+            });
+            return;
+        }
+
         const renderDetailContent = async (versionIdx) => {
             const version = project.versions[versionIdx];
             let filesHtml = '', releasesHtml = '';
             
             if (type === 'github') {
+                // GitHub 项目：从 B2 读取元数据
                 let metadata = null;
-                if (version.metaPath) {
+                if (version && version.metaPath) {
                     metadata = await fetchMetadataFromB2(version.metaPath);
                 }
                 
-                filesHtml = `<div class="file-list">`;
+                filesHtml = \`<div class="file-list">\`;
                 if (metadata && metadata.files && metadata.files.length > 0) {
-                    filesHtml += metadata.files.map(f => `
+                    filesHtml += metadata.files.map(f => \`
                         <div class="file-row">
                             <i class="far fa-file-code file-icon"></i>
-                            <span class="file-name">${f}</span>
-                            <span class="file-meta">${(Math.random()*4+1).toFixed(1)} KB</span>
+                            <span class="file-name">\${f}</span>
+                            <span class="file-meta">\${(Math.random()*4+1).toFixed(1)} KB</span>
                         </div>
-                    `).join('');
+                    \`).join('');
                 } else {
-                    filesHtml += `<div class="file-row"><span class="file-name">暂无文件</span></div>`;
+                    filesHtml += \`<div class="file-row"><span class="file-name">暂无文件</span></div>\`;
                 }
-                filesHtml += `</div>`;
-                releasesHtml = '';
+                filesHtml += \`</div>\`;
+                releasesHtml = ''; // 可扩展
             } else {
-                filesHtml = `<div class="docker-tag-list">`;
-                if (version && version.tag) {
-                    filesHtml += `
-                        <div class="tag-row">
-                            <span><i class="fas fa-tag"></i> ${version.tag}</span>
-                            <span>${version.date}</span>
-                            <span><button class="btn-icon"><i class="fas fa-download"></i> pull</button></span>
-                        </div>
-                    `;
-                } else {
-                    filesHtml += `<div class="tag-row">暂无版本</div>`;
+                // Docker 项目：显示所有已备份的 tags
+                filesHtml = \`<div class="docker-tag-list">\`;
+                // 遍历所有版本（即所有 tag）
+                project.versions.forEach(v => {
+                    if (v && v.tag) {
+                        filesHtml += \`
+                            <div class="tag-row">
+                                <span><i class="fas fa-tag"></i> \${v.tag}</span>
+                                <span>\${v.date || ''}</span>
+                                <span><button class="btn-icon"><i class="fas fa-download"></i> pull</button></span>
+                            </div>
+                        \`;
+                    }
+                });
+                if (project.versions.length === 0) {
+                    filesHtml += \`<div class="tag-row">暂无版本</div>\`;
                 }
-                filesHtml += `</div>`;
+                filesHtml += \`</div>\`;
             }
             return { filesHtml, releasesHtml };
         };
@@ -1906,31 +1929,32 @@ export const clientJS = `
             if (type === 'github') {
                 versionDates = project.versions.map(v => v.date);
             } else {
+                // Docker 项目暂时不支持版本切换，但仍生成日期列表用于占位
                 versionDates = project.versions.map(v => v.tag);
             }
             const currentVersion = type === 'github' ? project.versions[versionIdx].date : project.versions[versionIdx].tag;
             
-            return `
+            return \`
                 <div class="detail-header">
                     <button class="back-btn" id="backBtn"><i class="fas fa-arrow-left"></i> 返回列表</button>
-                    <h2><i class="${type === 'github' ? 'fab fa-github' : 'fab fa-docker'}"></i> ${project.name}</h2>
+                    <h2><i class="\${type === 'github' ? 'fab fa-github' : 'fab fa-docker'}"></i> \${project.name}</h2>
                     <div class="version-selector" id="versionSelector">
-                        <span id="selectedVersion">${currentVersion}</span>
+                        <span id="selectedVersion">\${currentVersion}</span>
                         <i class="fas fa-chevron-down"></i>
                         <div class="version-dropdown" id="versionDropdown">
-                            ${versionDates.map((date, idx) => `
-                                <div class="version-item ${idx === versionIdx ? 'current' : ''}" data-version-index="${idx}">${date}</div>
-                            `).join('')}
+                            \${versionDates.map((date, idx) => \`
+                                <div class="version-item \${idx === versionIdx ? 'current' : ''}" data-version-index="\${idx}">\${date}</div>
+                            \`).join('')}
                         </div>
                     </div>
                 </div>
-                ${filesHtml}
-                ${releasesHtml || ''}
+                \${filesHtml}
+                \${releasesHtml || ''}
                 <p style="margin-top:1rem; color:#475569;">
                     <i class="fas fa-info-circle"></i> 
-                    ${type === 'github' ? '文件列表和Releases随版本切换' : '标签列表随版本切换'}
+                    \${type === 'github' ? '文件列表和Releases随版本切换' : '标签列表'}
                 </p>
-            `;
+            \`;
         };
         
         detailView.innerHTML = '<div class="loading-indicator">加载详情中...</div>';
@@ -1962,6 +1986,7 @@ export const clientJS = `
                             currentVersionIndex = idx;
                             (async () => {
                                 detailView.innerHTML = await buildFullHtml(currentVersionIndex);
+                                // 重新绑定事件
                                 showDetail(type, project);
                             })();
                         }
