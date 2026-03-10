@@ -1,5 +1,5 @@
 // queue.js
-import { processBatch, processAsset, processDockerLayer } from './lib/batchProcessor.js';
+import { processBatch, processAsset, processDockerLayer, getB2Client, uploadFile } from './lib/batchProcessor.js';
 import { getRepoFileTree } from './lib/github.js';
 import { createMasterTask, updateMasterTaskProgress, completeMasterTask, getMasterTask, getActiveTasks } from './lib/taskManager.js';
 import { fetchWithDockerAuth } from './lib/docker.js';
@@ -69,14 +69,21 @@ export async function queueHandler(batch, env, ctx) {
           
           // 处理 manifest list 或普通 manifest
           let targetManifest = manifest;
-          if (manifest.mediaType && (manifest.mediaType.includes('manifest.list') || manifest.mediaType.includes('image.index'))) {
+          const isIndex = manifest.mediaType && (manifest.mediaType.includes('manifest.list') || manifest.mediaType.includes('image.index'));
+          
+          if (isIndex) {
             console.log(`[Docker-Master] Detected manifest list for ${repo}:${tag}`);
             if (!manifest.manifests || manifest.manifests.length === 0) {
               throw new Error(`Manifest list for ${repo}:${tag} has no manifests`);
             }
-            const first = manifest.manifests[0];
-            console.log(`[Docker-Master] Selecting first platform: ${first.platform ? first.platform.os + '/' + first.platform.architecture : 'unknown'}`);
-            const platformManifestUrl = `https://registry-1.docker.io/v2/${repo}/manifests/${first.digest}`;
+            // 筛选出非 attestation-manifest 的第一个
+            const firstConcreteManifest = manifest.manifests.find(m => !m.annotations || m.annotations['vnd.docker.reference.type'] !== 'attestation-manifest');
+            if (!firstConcreteManifest) {
+              throw new Error(`Manifest list for ${repo}:${tag} contains only attestation manifests.`);
+            }
+
+            console.log(`[Docker-Master] Selecting first platform: ${firstConcreteManifest.platform ? firstConcreteManifest.platform.os + '/' + firstConcreteManifest.platform.architecture : 'unknown'}`);
+            const platformManifestUrl = `https://registry-1.docker.io/v2/${repo}/manifests/${firstConcreteManifest.digest}`;
             console.log(`[Docker-Master] Fetching platform manifest from ${platformManifestUrl}`);
             const platformResponse = await fetchWithDockerAuth(platformManifestUrl, env);
             if (!platformResponse.ok) {
@@ -86,6 +93,28 @@ export async function queueHandler(batch, env, ctx) {
             }
             targetManifest = await platformResponse.json();
             console.log(`[Docker-Master] Platform manifest schemaVersion=${targetManifest.schemaVersion}`);
+          }
+
+          // 上传 Manifest 文件
+          try {
+            const { client, bucket } = await getB2Client(bucketId, env);
+            
+            // 上传最终的平台 manifest
+            const targetManifestString = JSON.stringify(targetManifest, null, 2);
+            const manifestKey = `docker/${repo}/manifests/${tag}.json`;
+            await uploadFile(client, bucket, manifestKey, targetManifestString, targetManifestString.length);
+            console.log(`[Docker-Master] Successfully uploaded manifest to ${manifestKey}`);
+
+            // 如果是索引，也上传索引文件
+            if (isIndex) {
+              const indexString = JSON.stringify(manifest, null, 2);
+              const indexKey = `docker/${repo}/manifests/${tag}.index.json`;
+              await uploadFile(client, bucket, indexKey, indexString, indexString.length);
+              console.log(`[Docker-Master] Successfully uploaded index to ${indexKey}`);
+            }
+          } catch(e) {
+            console.error(`[Docker-Master] CRITICAL: Failed to upload manifest file for ${repo}:${tag}. Error: ${e.message}`);
+            // 决定是继续还是抛出错误，这里选择继续，但记录一个严重的警告
           }
           
           // 处理目标 manifest 的 layers
