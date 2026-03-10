@@ -7,6 +7,7 @@ import { handleTask } from './task.js';
 import { handleQueueStatus } from '../queue.js';
 import { handleVerify } from './verify.js';
 import { handleGithubTokens, handleDockerTokens } from './tokens.js';
+import { handleMeta } from './meta.js'; // 新增
 
 export async function handleAPI(request, env) {
   const url = new URL(request.url);
@@ -61,6 +62,10 @@ export async function handleAPI(request, env) {
   }
   if (path === 'tokens/docker') {
     return handleDockerTokens(request, env);
+  }
+  // 元数据接口
+  if (path === 'meta' && method === 'GET') {
+    return handleMeta(request, env);
   }
   return new Response('API not found', { status: 404 });
 }

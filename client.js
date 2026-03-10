@@ -55,6 +55,12 @@ export const clientJS = `
     let globalLogs = [];
     let newLogCount = 0;
 
+    // 当前查看的项目详情（用于版本切换）
+    let currentDetailProject = null;
+    let currentDetailType = 'github';
+    let currentVersionIndex = 0;
+    let cachedMetaData = {}; // 按 metaPath 缓存元数据
+
     // ============================================================================
     // 3. 数据加载与更新
     // ============================================================================
@@ -1779,7 +1785,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 14. 项目卡片渲染
+    // 14. 项目卡片渲染（从 D1 读取数据，无需修改）
     // ============================================================================
 
     const githubGrid = safeGet('githubGrid');
@@ -1796,90 +1802,217 @@ export const clientJS = `
     function createProjectCard(proj, type) {
         const card = document.createElement('div'); card.className = 'project-card';
         const isGitHub = type === 'github';
-        const displayName = isGitHub ? proj.name : proj.name + (proj.versions[0].tags ? \`:\${proj.versions[0].tags[0]}\` : '');
-        const hasAnyReleases = proj.versions.some(v => v.releases && v.releases.length > 0);
-        const releasesButton = hasAnyReleases ? \`<div class="releases-group"><button class="btn-icon btn-release"><i class="fas fa-tag"></i> Releases</button></div>\` : '';
-        const officialButton = \`<a href="\${proj.homepage}" target="_blank" class="official-link-btn" title="访问官网"><i class="fas fa-external-link-alt"></i></a>\`;
+        // 从 versions 中获取最新版本的日期
+        const latestVersion = proj.versions && proj.versions.length > 0 ? proj.versions[proj.versions.length - 1] : { date: proj.lastUpdate };
+        const displayName = isGitHub ? proj.name : proj.name;
         const bgIconClass = type === 'github' ? 'fab fa-github' : 'fab fa-docker';
+        
+        // 构建卡片 HTML（仅显示基本信息，详细内容需要点击后加载）
         card.innerHTML = \`
             <div class="card-bg-icon"><i class="\${bgIconClass}"></i></div>
             <div class="card-header">
                 <a class="project-name" data-detail='\${JSON.stringify(proj).replace(/'/g, "&apos;")}' data-type="\${type}">\${displayName}</a>
-                <div class="header-right">\${officialButton}</div>
+                <div class="header-right">
+                    <a href="\${proj.homepage}" target="_blank" class="official-link-btn" title="访问官网"><i class="fas fa-external-link-alt"></i></a>
+                </div>
             </div>
             <div class="project-meta">
                 <span class="meta-item"><i class="far fa-calendar-alt"></i> 最后更新: \${proj.lastUpdate}</span>
-                <span class="meta-item"><i class="far fa-clock"></i> 存入: \${proj.versions[0].date}</span>
+                <span class="meta-item"><i class="far fa-clock"></i> 存入: \${latestVersion.date}</span>
             </div>
             <div class="action-buttons">
                 <button class="btn-icon git-link-btn"><i class="far fa-copy"></i> Git链接</button>
-                <div style="display: flex; gap:0.3rem;"><button class="btn-icon btn-download"><i class="fas fa-file-zipper"></i> 下载ZIP</button></div>
-                \${releasesButton}
+                <button class="btn-icon btn-download"><i class="fas fa-file-zipper"></i> 下载ZIP</button>
+                <button class="btn-icon btn-stream"><i class="fas fa-water"></i> 流式</button>
             </div>\`;
         const nameLink = card.querySelector('.project-name');
         if (nameLink) {
-            nameLink.addEventListener('click', (e) => { e.preventDefault(); showDetail(type, JSON.parse(e.target.dataset.detail)); });
-        }
-        const releaseBtn = card.querySelector('.btn-release');
-        if (releaseBtn) {
-            releaseBtn.addEventListener('click', (e) => { e.stopPropagation(); showReleasesPopup(proj.versions, proj.name, type, 0, false); });
+            nameLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                showDetail(type, proj);
+            });
         }
         return card;
     }
 
-    function showDetail(type, project) {
+    // ============================================================================
+    // 15. 详情页加载（从 B2 获取元数据）
+    // ============================================================================
+
+    async function showDetail(type, project) {
+        currentDetailProject = project;
+        currentDetailType = type;
+        currentVersionIndex = 0; // 默认显示最新版本（最后一个）
+        
         if (homeView) homeView.classList.add('hide');
         if (detailView) detailView.classList.remove('hide');
-        let currentVersionIndex = 0;
-        const renderDetailContent = (versionIdx) => {
-            const version = project.versions[versionIdx];
-            let filesHtml = '', releasesHtml = '';
-            if (type === 'github') {
-                filesHtml = \`<div class="file-list">\${version.files.map(f => \`<div class="file-row"><i class="far fa-file-code file-icon"></i><span class="file-name">\${f}</span><span class="file-meta">\${(Math.random()*4+1).toFixed(1)} KB</span></div>\`).join('')}</div>\`;
-                if (version.releases && version.releases.length > 0) {
-                    releasesHtml = \`<div class="section-title">Releases</div><div class="releases-list">\${version.releases.map(r => \`<div class="release-row"><i class="fas fa-tag release-icon"></i><div class="release-info"><span class="release-tag">\${r.tag}</span><span class="release-date">\${r.date}</span></div><div class="release-download"><button class="btn-icon btn-download"><i class="fas fa-download"></i> 下载</button></div></div>\`).join('')}</div>\`;
-                }
-            } else {
-                filesHtml = \`<div class="docker-tag-list">\${version.tags.map(tag => \`<div class="tag-row"><span><i class="fas fa-tag"></i> \${tag}</span><span><button class="btn-icon"><i class="fas fa-download"></i> pull</button><button class="btn-icon btn-stream"><i class="fas fa-water"></i> 流式</button></span></div>\`).join('')}</div>\`;
-                if (version.releases && version.releases.length > 0) {
-                    releasesHtml = \`<div class="section-title">版本发布</div><div class="releases-list">\${version.releases.map(r => \`<div class="release-row"><i class="fas fa-tag release-icon"></i><div class="release-info"><span class="release-tag">\${r.tag}</span><span class="release-date">\${r.date}</span>\${r.digest ? '<span style="font-size:0.8rem;">' + r.digest + '</span>' : ''}</div><div class="release-download"><button class="btn-icon btn-download"><i class="fas fa-download"></i> pull</button></div></div>\`).join('')}</div>\`;
-                }
+        
+        await renderDetailView();
+    }
+
+    async function renderDetailView() {
+        if (!currentDetailProject) return;
+        
+        const project = currentDetailProject;
+        const type = currentDetailType;
+        const versions = project.versions || [];
+        
+        if (versions.length === 0) {
+            detailView.innerHTML = '<div class="empty-state">该项目暂无版本信息</div>';
+            return;
+        }
+        
+        // 获取当前版本信息
+        const version = versions[currentVersionIndex];
+        const metaPath = version.metaPath;
+        const bucketId = version.bucketId;
+        
+        // 尝试从缓存获取元数据
+        let metaData = cachedMetaData[metaPath];
+        if (!metaData) {
+            try {
+                const res = await fetch(\`/api/meta?path=\${encodeURIComponent(metaPath)}&bucketId=\${bucketId}\`);
+                if (!res.ok) throw new Error('Failed to load metadata');
+                metaData = await res.json();
+                cachedMetaData[metaPath] = metaData; // 缓存
+            } catch (e) {
+                console.error('Failed to load metadata:', e);
+                detailView.innerHTML = \`<div class="empty-state">加载失败：\${e.message}</div>\`;
+                return;
             }
-            return { filesHtml, releasesHtml };
-        };
-        const buildFullHtml = (versionIdx) => {
-            const { filesHtml, releasesHtml } = renderDetailContent(versionIdx);
-            const versionDates = project.versions.map(v => v.date);
-            const currentDate = project.versions[versionIdx].date;
-            return \`<div class="detail-header"><button class="back-btn" id="backBtn"><i class="fas fa-arrow-left"></i> 返回列表</button><h2><i class="\${type === 'github' ? 'fab fa-github' : 'fab fa-docker'}"></i> \${project.name}</h2><div class="version-selector" id="versionSelector"><span id="selectedVersion">\${currentDate}</span><i class="fas fa-chevron-down"></i><div class="version-dropdown" id="versionDropdown">\${versionDates.map((date, idx) => \`<div class="version-item \${idx === versionIdx ? 'current' : ''}" data-version-index="\${idx}">\${date}</div>\`).join('')}</div></div></div>\${filesHtml}\${releasesHtml || ''}<p style="margin-top:1rem; color:#475569;"><i class="fas fa-info-circle"></i> \${type === 'github' ? '文件列表和Releases随版本切换' : '标签列表和Releases随版本切换'}</p>\`;
-        };
-        if (detailView) detailView.innerHTML = buildFullHtml(currentVersionIndex);
+        }
+        
+        // 根据类型渲染详情
+        let html = '';
+        if (type === 'github') {
+            html = renderGithubDetail(project, versions, currentVersionIndex, metaData);
+        } else {
+            html = renderDockerDetail(project, versions, currentVersionIndex, metaData);
+        }
+        
+        detailView.innerHTML = html;
+        attachDetailEventHandlers(type, project, versions);
+    }
+
+    function renderGithubDetail(project, versions, currentIdx, metaData) {
+        const versionDates = versions.map(v => v.date);
+        const currentDate = versions[currentIdx].date;
+        const files = metaData.files || [];
+        const releases = metaData.releases || [];
+        
+        const filesHtml = files.map(f => \`
+            <div class="file-row">
+                <i class="far fa-file-code file-icon"></i>
+                <span class="file-name">\${f}</span>
+                <span class="file-meta">-</span>
+            </div>
+        \`).join('');
+        
+        const releasesHtml = releases.map(r => \`
+            <div class="release-row">
+                <i class="fas fa-tag release-icon"></i>
+                <div class="release-info">
+                    <span class="release-tag">\${r.name}</span>
+                    <span class="release-date">\${r.date || ''}</span>
+                </div>
+                <div class="release-download">
+                    <button class="btn-icon btn-download" onclick="window.open('\${r.url}', '_blank')">下载</button>
+                </div>
+            </div>
+        \`).join('');
+        
+        return \`
+            <div class="detail-header">
+                <button class="back-btn" id="backBtn"><i class="fas fa-arrow-left"></i> 返回列表</button>
+                <h2><i class="fab fa-github"></i> \${project.name}</h2>
+                <div class="version-selector" id="versionSelector">
+                    <span id="selectedVersion">\${currentDate}</span>
+                    <i class="fas fa-chevron-down"></i>
+                    <div class="version-dropdown" id="versionDropdown">
+                        \${versionDates.map((date, idx) => \`
+                            <div class="version-item \${idx === currentIdx ? 'current' : ''}" data-version-index="\${idx}">\${date}</div>
+                        \`).join('')}
+                    </div>
+                </div>
+            </div>
+            <div class="file-list">\${filesHtml}</div>
+            \${releasesHtml ? '<div class="section-title">Releases</div>' + '<div class="releases-list">' + releasesHtml + '</div>' : ''}
+            <p style="margin-top:1rem; color:#475569;"><i class="fas fa-info-circle"></i> 文件列表和Releases随版本切换</p>
+        \`;
+    }
+
+    function renderDockerDetail(project, versions, currentIdx, metaData) {
+        const versionDates = versions.map(v => v.date);
+        const currentDate = versions[currentIdx].date;
+        const tags = metaData.tags || [];
+        
+        const tagsHtml = tags.map(tag => \`
+            <div class="tag-row">
+                <span><i class="fas fa-tag"></i> \${tag}</span>
+                <span><button class="btn-icon"><i class="fas fa-download"></i> pull</button></span>
+            </div>
+        \`).join('');
+        
+        return \`
+            <div class="detail-header">
+                <button class="back-btn" id="backBtn"><i class="fas fa-arrow-left"></i> 返回列表</button>
+                <h2><i class="fab fa-docker"></i> \${project.name}</h2>
+                <div class="version-selector" id="versionSelector">
+                    <span id="selectedVersion">\${currentDate}</span>
+                    <i class="fas fa-chevron-down"></i>
+                    <div class="version-dropdown" id="versionDropdown">
+                        \${versionDates.map((date, idx) => \`
+                            <div class="version-item \${idx === currentIdx ? 'current' : ''}" data-version-index="\${idx}">\${date}</div>
+                        \`).join('')}
+                    </div>
+                </div>
+            </div>
+            <div class="docker-tag-list">\${tagsHtml}</div>
+            <p style="margin-top:1rem; color:#475569;"><i class="fas fa-info-circle"></i> 标签列表随版本切换</p>
+        \`;
+    }
+
+    function attachDetailEventHandlers(type, project, versions) {
         const backBtn = safeGet('backBtn');
-        if (backBtn) backBtn.addEventListener('click', () => { if (detailView) detailView.classList.add('hide'); if (homeView) homeView.classList.remove('hide'); });
+        if (backBtn) {
+            backBtn.addEventListener('click', () => {
+                if (detailView) detailView.classList.add('hide');
+                if (homeView) homeView.classList.remove('hide');
+            });
+        }
+        
         const selector = safeGet('versionSelector');
         const dropdown = safeGet('versionDropdown');
         if (selector) {
-            selector.addEventListener('click', (e) => { e.stopPropagation(); if (dropdown) dropdown.classList.toggle('show'); });
+            selector.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (dropdown) dropdown.classList.toggle('show');
+            });
         }
+        
         if (dropdown) {
             dropdown.querySelectorAll('.version-item').forEach(item => {
-                item.addEventListener('click', (e) => {
+                item.addEventListener('click', async (e) => {
                     e.stopPropagation();
                     const idx = parseInt(item.dataset.versionIndex);
                     if (idx !== currentVersionIndex) {
                         currentVersionIndex = idx;
-                        if (detailView) detailView.innerHTML = buildFullHtml(currentVersionIndex);
-                        showDetail(type, project);
+                        await renderDetailView(); // 重新渲染
                     }
                     if (dropdown) dropdown.classList.remove('show');
                 });
             });
         }
-        document.addEventListener('click', function closeDropdown(e) { if (selector && !selector.contains(e.target) && dropdown) dropdown.classList.remove('show'); }, { once: true });
+        
+        document.addEventListener('click', function closeDropdown(e) {
+            if (selector && !selector.contains(e.target) && dropdown) {
+                dropdown.classList.remove('show');
+            }
+        }, { once: true });
     }
 
     // ============================================================================
-    // 15. 悬浮窗（Releases）
+    // 16. 悬浮窗（Releases）- 保持不变
     // ============================================================================
 
     const popup = safeGet('releasesPopup');
@@ -1969,7 +2102,7 @@ export const clientJS = `
     if (popup) popup.addEventListener('click', (e) => { if (e.target === popup) popup.style.display = 'none'; });
 
     // ============================================================================
-    // 16. 标签切换
+    // 17. 标签切换
     // ============================================================================
 
     function setActiveTab(tabId) {
@@ -1992,7 +2125,7 @@ export const clientJS = `
     tabs.forEach(tab => tab.addEventListener('click', () => setActiveTab(tab.dataset.tab)));
 
     // ============================================================================
-    // 17. 任务轮询
+    // 18. 任务轮询
     // ============================================================================
 
     function pollTaskStatus(taskId) {
@@ -2019,7 +2152,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 18. 事件绑定（登录等）
+    // 19. 事件绑定（登录等）
     // ============================================================================
 
     if (loginBtn) loginBtn.addEventListener('click', () => { if (loginModal) loginModal.style.display = 'flex'; });
@@ -2067,7 +2200,7 @@ export const clientJS = `
     });
 
     // ============================================================================
-    // 19. 日志挂件
+    // 20. 日志挂件
     // ============================================================================
     const logFab = safeGet('log-widget-fab');
     const logBadge = safeGet('log-widget-badge');
@@ -2136,7 +2269,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 20. 初始化
+    // 21. 初始化
     // ============================================================================
 
     await loadData();
