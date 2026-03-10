@@ -43,11 +43,17 @@ export async function queueHandler(batch, env, ctx) {
       // Docker 主任务：解析每个 tag 的 manifest，拆分为 layer 任务
       try {
         const { taskId, repo, bucketId, tags } = task;
-        // 初始化 master 任务状态
+        // 初始化 master 任务状态（先插入基础信息，metadata 后续更新）
         await env.DB.prepare(`
             INSERT INTO master_tasks (task_id, owner, repo, bucket_id, total_assets, total_asset_batches, status, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `).bind(taskId, 'docker', repo, bucketId, 0, 0, 'processing', Date.now()).run();
+
+        // 更新 metadata，存储 tags 列表
+        const metadata = JSON.stringify({ tags: tags });
+        await env.DB.prepare(`
+            UPDATE master_tasks SET metadata = ? WHERE task_id = ?
+        `).bind(metadata, taskId).run();
 
         // 为每个 tag 获取 manifest 并拆分层
         for (const tag of tags) {
@@ -122,7 +128,9 @@ export async function queueHandler(batch, env, ctx) {
         // 所有 tags 处理完后，保存项目信息到 projects 表（立即保存，即使 layer 任务尚未完成）
         const master = await getMasterTask(env, taskId);
         if (master) {
-          await saveProjectToDb(env, master, tags);
+          // 从 metadata 中获取 tags
+          const tagsFromMetadata = master.metadata?.tags || [];
+          await saveProjectToDb(env, master, tagsFromMetadata);
         }
 
         // 检查是否有任何任务被创建
