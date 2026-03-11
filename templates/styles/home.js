@@ -667,7 +667,7 @@ export const home = `
 .file-row .file-size {
     color: #64748b;
     font-size: 0.85rem;
-    margin-right: 1rem;
+    margin-right: 0.5rem; /* 减小右边距，让大小与下载按钮更近 */
     min-width: 80px;
     text-align: right;
 }
@@ -679,6 +679,7 @@ export const home = `
     padding: 0.3rem 0.8rem;
     border-radius: 20px;
     transition: background 0.2s;
+    margin-left: 0.5rem; /* 下载按钮左移，靠近大小 */
 }
 .file-row .btn-download:hover {
     background: #f1f5f9;
@@ -752,5 +753,14 @@ export const home = `
     font-size: 1.2rem;
     font-weight: 600;
     margin: 1.5rem 0 1rem 0;
+}
+
+/* Markdown 样式 */
+.markdown-body {
+    padding: 1.5rem;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 20px;
+    margin-top: 1.5rem;
 }
 `;

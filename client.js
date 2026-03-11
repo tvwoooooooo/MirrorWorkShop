@@ -60,6 +60,7 @@ export const clientJS = `
     let currentDetailType = 'github';
     let currentVersionIndex = 0;
     let cachedMetaData = {}; // 按 metaPath 缓存元数据
+    let cachedReadme = {}; // 按 metaPath 缓存 README 内容
 
     // ============================================================================
     // 3. 数据加载与更新
@@ -1344,7 +1345,7 @@ export const clientJS = `
                 const res = await fetch(\`/api/repo-tree?owner=\${project.owner}&repo=\${project.repo}\`);
                 if (!res.ok) throw new Error('获取文件树失败');
                 backupFileTree = await res.json();
-                renderFileTree();
+                renderBackupFileTree(); // 改为使用树状结构
             } catch (e) {
                 fileTreeContainer.innerHTML = \`<div class="empty-state">加载失败：\${e.message}</div>\`;
             }
@@ -1379,29 +1380,81 @@ export const clientJS = `
         }
     }
 
-    function renderFileTree() {
+    // 备份模态框中的文件树（带复选框）
+    function renderBackupFileTree() {
         if (!backupFileTree || backupFileTree.length === 0) {
             fileTreeContainer.innerHTML = '<div class="empty-state">无文件</div>';
             return;
         }
-        let html = '';
-        backupFileTree.forEach(path => {
-            html += \`
-                <div class="file-item">
-                    <input type="checkbox" class="file-checkbox" data-path="\${path}" checked>
-                    <span class="file-name">\${path}</span>
-                </div>
-            \`;
+        // 构建树结构（与详情页相同）
+        const files = backupFileTree.map(path => ({ path, size: 0 })); // 备份时没有大小信息
+        const tree = buildFileTree(files);
+        
+        function renderTree(nodes, level = 0) {
+            return nodes.map(node => {
+                if (node.type === 'folder') {
+                    return \`
+                        <div class="folder-row file-row" data-path="\${node.path}">
+                            <input type="checkbox" class="folder-checkbox" data-path="\${node.path}" style="margin-right: 0.5rem;">
+                            <i class="fas fa-folder folder-icon"></i>
+                            <span class="file-name">\${node.name}</span>
+                            <span class="file-size"></span>
+                        </div>
+                        <div class="folder-children" style="display: none;">
+                            \${renderTree(node.children, level + 1)}
+                        </div>
+                    \`;
+                } else {
+                    return \`
+                        <div class="file-row" data-path="\${node.path}">
+                            <input type="checkbox" class="file-checkbox" data-path="\${node.path}" style="margin-right: 0.5rem;" checked>
+                            <i class="far fa-file file-icon"></i>
+                            <span class="file-name">\${node.name}</span>
+                            <span class="file-size"></span>
+                        </div>
+                    \`;
+                }
+            }).join('');
+        }
+        
+        fileTreeContainer.innerHTML = renderTree(tree);
+        
+        // 绑定文件夹点击展开/折叠
+        document.querySelectorAll('.folder-row').forEach(row => {
+            row.addEventListener('click', (e) => {
+                if (e.target.type === 'checkbox') return; // 点击复选框时不展开
+                const children = row.nextElementSibling;
+                if (children && children.classList.contains('folder-children')) {
+                    const isHidden = children.style.display === 'none';
+                    children.style.display = isHidden ? 'block' : 'none';
+                    const icon = row.querySelector('.folder-icon');
+                    if (icon) {
+                        icon.className = isHidden ? 'fas fa-folder-open folder-icon' : 'fas fa-folder folder-icon';
+                    }
+                }
+            });
         });
-        fileTreeContainer.innerHTML = html;
-
+        
+        // 初始化选中状态（默认全选）
         document.querySelectorAll('.file-checkbox').forEach(cb => {
-            cb.addEventListener('change', updateSelectedFiles);
+            cb.addEventListener('change', updateBackupSelectedFiles);
         });
-        updateSelectedFiles();
+        document.querySelectorAll('.folder-checkbox').forEach(cb => {
+            cb.addEventListener('change', (e) => {
+                const folderPath = e.target.dataset.path;
+                // 勾选/取消勾选文件夹下所有文件
+                const folderChildren = e.target.closest('.folder-row').nextElementSibling;
+                if (folderChildren) {
+                    const checkboxes = folderChildren.querySelectorAll('.file-checkbox');
+                    checkboxes.forEach(cb2 => cb2.checked = e.target.checked);
+                }
+                updateBackupSelectedFiles();
+            });
+        });
+        updateBackupSelectedFiles();
     }
 
-    function updateSelectedFiles() {
+    function updateBackupSelectedFiles() {
         selectedFiles.clear();
         document.querySelectorAll('.file-checkbox:checked').forEach(cb => {
             selectedFiles.add(cb.dataset.path);
@@ -1415,6 +1468,8 @@ export const clientJS = `
             selectAllFiles.indeterminate = count > 0 && count < backupFileTree.length;
         }
     }
+
+    // 原有的 renderFileTree 保留用于兼容？不再使用，替换为 renderBackupFileTree
 
     function renderReleases() {
         if (!backupReleases || backupReleases.length === 0) {
@@ -1692,7 +1747,9 @@ export const clientJS = `
     if (selectAllFiles) {
         selectAllFiles.addEventListener('change', (e) => {
             document.querySelectorAll('.file-checkbox').forEach(cb => cb.checked = e.target.checked);
-            updateSelectedFiles();
+            // 同时处理文件夹复选框？需要递归处理
+            document.querySelectorAll('.folder-checkbox').forEach(cb => cb.checked = e.target.checked);
+            updateBackupSelectedFiles();
         });
     }
 
@@ -1934,6 +1991,42 @@ export const clientJS = `
         
         detailView.innerHTML = html;
         attachDetailEventHandlers(type, project, versions);
+        
+        // 加载 README 或 Overview
+        if (type === 'github') {
+            await loadReadme(project, versions[currentVersionIndex], bucketId);
+        } else {
+            // Docker 暂时不实现 Overview，留空
+        }
+    }
+
+    async function loadReadme(project, version, bucketId) {
+        // 在元数据中查找 README.md 文件
+        const metaData = cachedMetaData[version.metaPath];
+        if (!metaData || !metaData.files) return;
+        
+        const readmeFile = metaData.files.find(f => f.path.toLowerCase() === 'readme.md');
+        if (!readmeFile) return;
+        
+        // 从 B2 获取内容
+        const readmeKey = readmeFile.key; // 已经在元数据中存储了 key
+        try {
+            const { client, bucket } = await getB2Client(bucketId, env); // 但这里没有 env，需要从全局获取？实际上 client.js 没有 env，需要另外实现。
+            // 由于 client.js 是前端，不能直接使用 getB2Client，我们需要通过 API 获取文件内容。
+            // 我们可以调用 /api/file?path=... 接口。
+            const res = await fetch(\`/api/file?path=\${encodeURIComponent(readmeKey)}&bucketId=\${bucketId}\`);
+            if (!res.ok) throw new Error('Failed to fetch README');
+            const content = await res.text();
+            
+            // 渲染 Markdown
+            const readmeHtml = marked.parse(content); // 需要引入 marked 库
+            const readmeContainer = document.getElementById('readme-container');
+            if (readmeContainer) {
+                readmeContainer.innerHTML = readmeHtml;
+            }
+        } catch (e) {
+            console.error('Failed to load README:', e);
+        }
     }
 
     function renderGithubDetail(project, versions, currentIdx, metaData) {
@@ -1942,10 +2035,20 @@ export const clientJS = `
         const files = metaData.files || [];
         const releases = metaData.releases || [];
         
+        // 对 files 按路径构建树，并在每层排序：文件夹在前，文件在后，按名称字母排序
         const fileTree = buildFileTree(files);
         
+        function sortNodes(nodes) {
+            return nodes.sort((a, b) => {
+                if (a.type !== b.type) {
+                    return a.type === 'folder' ? -1 : 1; // 文件夹在前
+                }
+                return a.name.localeCompare(b.name);
+            });
+        }
+        
         function renderTree(nodes, level = 0) {
-            return nodes.map(node => {
+            return sortNodes(nodes).map(node => {
                 if (node.type === 'folder') {
                     return \`
                         <div class="folder-row file-row" data-path="\${node.path}">
@@ -2001,6 +2104,7 @@ export const clientJS = `
             <h2><i class="fab fa-github"></i> \${project.name}</h2>
             <div class="file-list">\${filesHtml}</div>
             \${releasesHtml ? '<div class="section-title">Releases</div>' + '<div class="releases-list">' + releasesHtml + '</div>' : ''}
+            <div id="readme-container" class="markdown-body"></div>
             <p style="margin-top:1rem; color:#475569;"><i class="fas fa-info-circle"></i> 文件列表和Releases随版本切换</p>
         \`;
     }
