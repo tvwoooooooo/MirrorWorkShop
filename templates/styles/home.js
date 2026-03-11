@@ -629,12 +629,14 @@ export const home = `
     width: 20px;
     text-align: center;
 }
+/* Release 图标专用颜色（深绿色） */
 .release-icon {
     color: #166534;
     margin-right: 0.5rem;
     width: 20px;
     text-align: center;
 }
+/* Docker 图标专用颜色 */
 .docker-icon {
     color: #0b5394;
     margin-right: 0.5rem;
@@ -665,7 +667,7 @@ export const home = `
 .file-row .file-size {
     color: #64748b;
     font-size: 0.85rem;
-    margin-right: 0.5rem; /* 减少与下载按钮的距离 */
+    margin-right: 1rem;
     min-width: 80px;
     text-align: right;
 }
@@ -677,7 +679,6 @@ export const home = `
     padding: 0.3rem 0.8rem;
     border-radius: 20px;
     transition: background 0.2s;
-    margin-left: 0.5rem; /* 向右移动一点 */
 }
 .file-row .btn-download:hover {
     background: #f1f5f9;
@@ -705,6 +706,7 @@ export const home = `
     border-bottom: none;
 }
 
+/* 移除之前的通用样式，避免覆盖 */
 .file-name {
     flex: 1;
     font-weight: 500;
@@ -750,89 +752,5 @@ export const home = `
     font-size: 1.2rem;
     font-weight: 600;
     margin: 1.5rem 0 1rem 0;
-}
-
-/* README 样式 */
-.readme-container {
-    border: 1px solid #e2e8f0;
-    border-radius: 20px;
-    padding: 1.5rem;
-    margin-top: 1.5rem;
-    background: white;
-}
-
-.readme-container h3 {
-    font-size: 1.1rem;
-    font-weight: 600;
-    margin-bottom: 1rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid #e2e8f0;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.readme-content {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
-    line-height: 1.6;
-    overflow-x: auto;
-}
-
-.readme-content h1 {
-    font-size: 2em;
-    border-bottom: 1px solid #eaecef;
-    padding-bottom: 0.3em;
-    margin-top: 1.5em;
-    margin-bottom: 1em;
-}
-
-.readme-content h2 {
-    font-size: 1.5em;
-    border-bottom: 1px solid #eaecef;
-    padding-bottom: 0.3em;
-    margin-top: 1.5em;
-    margin-bottom: 1em;
-}
-
-.readme-content code {
-    background: #f6f8fa;
-    padding: 0.2em 0.4em;
-    border-radius: 3px;
-    font-family: 'SF Mono', Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
-}
-
-.readme-content pre {
-    background: #f6f8fa;
-    padding: 1rem;
-    border-radius: 6px;
-    overflow-x: auto;
-}
-
-.readme-content pre code {
-    background: none;
-    padding: 0;
-}
-
-.readme-content blockquote {
-    padding: 0 1em;
-    color: #6a737d;
-    border-left: 0.25em solid #dfe2e5;
-    margin: 1em 0;
-}
-
-.readme-content table {
-    border-collapse: collapse;
-    width: 100%;
-    margin: 1em 0;
-}
-
-.readme-content table th,
-.readme-content table td {
-    border: 1px solid #dfe2e5;
-    padding: 0.6em 1em;
-}
-
-.readme-content img {
-    max-width: 100%;
 }
 `;

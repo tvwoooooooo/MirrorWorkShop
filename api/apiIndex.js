@@ -8,7 +8,6 @@ import { handleQueueStatus } from '../queue.js';
 import { handleVerify } from './verify.js';
 import { handleGithubTokens, handleDockerTokens } from './tokens.js';
 import { handleMeta } from './meta.js';
-import { handleFileContent } from './file-content.js'; // 新增
 
 export async function handleAPI(request, env) {
   const url = new URL(request.url);
@@ -67,10 +66,6 @@ export async function handleAPI(request, env) {
   // 元数据接口
   if (path === 'meta' && method === 'GET') {
     return handleMeta(request, env);
-  }
-  // 文件内容接口
-  if (path === 'file-content' && method === 'GET') {
-    return handleFileContent(request, env);
   }
   return new Response('API not found', { status: 404 });
 }
