@@ -6,34 +6,37 @@ export const clientJS = `
     // ============================================================================
     const style = document.createElement('style');
     style.textContent = \`
+        /* 文件夹行样式 */
         .folder-row {
             cursor: pointer;
         }
-        .folder-row .expand-icon {
-            width: 24px;
-            text-align: center;
-            color: #64748b;
-            transition: transform 0.2s;
-            display: inline-block;
-        }
-        .folder-row.expanded .expand-icon {
-            transform: rotate(90deg);
-        }
         .folder-icon {
             color: #f1c40f;
-            margin-right: 1rem;
+            margin-right: 0.5rem;  /* 缩小图标与文件名的距离 */
+        }
+        .folder-open-icon {
+            color: #f1c40f;
+            margin-right: 0.5rem;
         }
         .file-icon {
             color: #64748b;
-            margin-right: 1rem;
+            margin-right: 0.5rem;
+        }
+        .release-icon {
+            color: #10b981;  /* 绿色，与官网搜索的 Releases 按钮一致 */
+            margin-right: 0.5rem;
+        }
+        .docker-icon {
+            color: #3b82f6;  /* 蓝色，代表 Docker */
+            margin-right: 0.5rem;
         }
         .folder-children {
-            margin-left: 24px;
+            margin-left: 24px;  /* 缩进 */
         }
         .file-row {
             display: flex;
             align-items: center;
-            padding: 0.8rem 1.5rem;
+            padding: 0.6rem 1.5rem;  /* 减小垂直内边距，让行更紧凑 */
             border-bottom: 1px solid #e2e8f0;
             background: white;
         }
@@ -43,7 +46,7 @@ export const clientJS = `
         .file-row .file-name {
             flex: 1;
             font-weight: 500;
-            margin-left: 0.5rem;
+            margin-left: 0;  /* 去掉左边距，让图标紧贴文件名 */
         }
         .file-row .file-size {
             color: #64748b;
@@ -57,12 +60,80 @@ export const clientJS = `
             border: none;
             color: #1e293b;
             cursor: pointer;
-            padding: 0.3rem 0.8rem;
+            padding: 0.2rem 0.6rem;
             border-radius: 20px;
             transition: background 0.2s;
         }
         .file-row .btn-download:hover {
             background: #f1f5f9;
+        }
+        /* 调整详情头部，减少间距 */
+        .detail-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;  /* 原值较大，减小 */
+        }
+        .detail-header h2 {
+            margin: 0;  /* 移除多余外边距 */
+        }
+        .version-selector {
+            position: relative;
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            background: #f1f5f9;
+            border-radius: 40px;
+            padding: 0.3rem 1rem 0.3rem 1.2rem;
+            cursor: pointer;
+            user-select: none;
+            gap: 0.5rem;
+        }
+        .version-selector span {
+            font-weight: 500;
+            color: #1e293b;
+        }
+        .version-selector i {
+            font-size: 0.8rem;
+            color: #64748b;
+        }
+        .version-dropdown {
+            position: absolute;
+            top: calc(100% + 8px);
+            right: 0;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 20px;
+            box-shadow: 0 12px 24px -8px rgba(0,0,0,0.15);
+            padding: 0.5rem 0;
+            min-width: 140px;
+            z-index: 20;
+            display: none;
+        }
+        .version-dropdown.show {
+            display: block;
+        }
+        .version-item {
+            padding: 0.6rem 1.5rem;
+            font-size: 0.95rem;
+            color: #334155;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .version-item:hover {
+            background: #f1f5f9;
+        }
+        .version-item.current {
+            background: #e9f0ff;
+            color: #1e4f8a;
+            font-weight: 600;
+        }
+        .release-row .release-download {
+            display: flex;
+            gap: 0.5rem;
+        }
+        .docker-tag-list .file-row {
+            cursor: default;
         }
     \`;
     document.head.appendChild(style);
@@ -2013,9 +2084,9 @@ export const clientJS = `
         function renderTree(nodes, level = 0) {
             return nodes.map(node => {
                 if (node.type === 'folder') {
+                    // 文件夹：使用闭合文件夹图标，点击展开时替换为打开图标
                     return \`
-                        <div class="folder-row file-row" data-path="\${node.path}">
-                            <span class="expand-icon"><i class="fas fa-chevron-right"></i></span>
+                        <div class="folder-row file-row" data-path="\${node.path}" data-expanded="false">
                             <i class="fas fa-folder folder-icon"></i>
                             <span class="file-name">\${node.name}</span>
                             <span class="file-size"></span>
@@ -2028,7 +2099,6 @@ export const clientJS = `
                     const sizeStr = formatFileSize(node.size);
                     return \`
                         <div class="file-row" data-path="\${node.path}">
-                            <span class="expand-icon" style="visibility:hidden;"><i class="fas fa-chevron-right"></i></span>
                             <i class="far fa-file file-icon"></i>
                             <span class="file-name">\${node.name}</span>
                             <span class="file-size">\${sizeStr}</span>
@@ -2043,7 +2113,6 @@ export const clientJS = `
         
         const releasesHtml = releases.map(r => \`
             <div class="release-row file-row">
-                <span class="expand-icon" style="visibility:hidden;"></span>
                 <i class="fas fa-tag release-icon"></i>
                 <div class="release-info">
                     <span class="release-tag">\${r.name}</span>
@@ -2081,8 +2150,7 @@ export const clientJS = `
         
         const tagsHtml = tags.map(tag => \`
             <div class="tag-row file-row">
-                <span class="expand-icon" style="visibility:hidden;"></span>
-                <i class="fas fa-tag"></i>
+                <i class="fas fa-tag docker-icon"></i>
                 <span class="file-name">\${tag}</span>
                 <span><button class="btn-icon"><i class="fas fa-download"></i> pull</button></span>
             </div>
@@ -2099,7 +2167,7 @@ export const clientJS = `
                     </div>
                 </div>
             </div>
-            <h2><i class="fab fa-docker"></i> \${project.name}</h2>
+            <h2><i class="fab fa-docker docker-icon"></i> \${project.name}</h2>
             <div class="docker-tag-list">\${tagsHtml}</div>
             <p style="margin-top:1rem; color:#475569;"><i class="fas fa-info-circle"></i> 标签列表随版本切换</p>
         \`;
@@ -2137,7 +2205,7 @@ export const clientJS = `
             });
         }
         
-        // 文件夹展开/折叠
+        // 文件夹展开/折叠：点击文件夹行时，切换图标和子文件夹显示
         const fileList = document.querySelector('.file-list');
         if (fileList) {
             fileList.addEventListener('click', (e) => {
@@ -2145,9 +2213,15 @@ export const clientJS = `
                 if (folderRow) {
                     const children = folderRow.nextElementSibling;
                     if (children && children.classList.contains('folder-children')) {
-                        const isHidden = children.style.display === 'none';
-                        children.style.display = isHidden ? 'block' : 'none';
-                        folderRow.classList.toggle('expanded', isHidden);
+                        const isExpanded = folderRow.dataset.expanded === 'true';
+                        // 切换显示状态
+                        children.style.display = isExpanded ? 'none' : 'block';
+                        folderRow.dataset.expanded = isExpanded ? 'false' : 'true';
+                        // 切换图标
+                        const icon = folderRow.querySelector('.folder-icon');
+                        if (icon) {
+                            icon.className = isExpanded ? 'fas fa-folder folder-icon' : 'fas fa-folder-open folder-icon';
+                        }
                     }
                 }
             });
