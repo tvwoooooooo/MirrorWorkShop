@@ -667,7 +667,7 @@ export const home = `
 .file-row .file-size {
     color: #64748b;
     font-size: 0.85rem;
-    margin-right: 0.5rem; /* 减小右侧间距 */
+    margin-right: 0.5rem;  /* 缩小右侧间距 */
     min-width: 80px;
     text-align: right;
 }
@@ -679,7 +679,7 @@ export const home = `
     padding: 0.3rem 0.8rem;
     border-radius: 20px;
     transition: background 0.2s;
-    margin-left: 0.2rem; /* 左间距小一些 */
+    margin-left: 0; /* 移除左侧边距，靠文件大小控制间距 */
 }
 .file-row .btn-download:hover {
     background: #f1f5f9;
@@ -753,5 +753,38 @@ export const home = `
     font-size: 1.2rem;
     font-weight: 600;
     margin: 1.5rem 0 1rem 0;
+}
+
+/* README 区域样式 */
+.readme-section {
+    margin-top: 2rem;
+    border-top: 1px solid #e2e8f0;
+    padding-top: 1.5rem;
+}
+.readme-section h3 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+.readme-content {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 1.5rem;
+    font-family: 'Inter', sans-serif;
+    line-height: 1.6;
+    overflow-x: auto;
+}
+.readme-content pre {
+    background: #1e293b;
+    color: #e2e8f0;
+    padding: 1rem;
+    border-radius: 8px;
+    overflow-x: auto;
+}
+.readme-content code {
+    background: #e2e8f0;
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
 }
 `;
