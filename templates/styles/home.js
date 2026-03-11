@@ -667,7 +667,7 @@ export const home = `
 .file-row .file-size {
     color: #64748b;
     font-size: 0.85rem;
-    margin-right: 0.5rem; /* 减小右边距，让大小与下载按钮更近 */
+    margin-right: 0.3rem; /* 进一步减小右边距 */
     min-width: 80px;
     text-align: right;
 }
@@ -679,13 +679,13 @@ export const home = `
     padding: 0.3rem 0.8rem;
     border-radius: 20px;
     transition: background 0.2s;
-    margin-left: 0.5rem; /* 下载按钮左移，靠近大小 */
+    margin-left: 0.8rem; /* 增加左边距，向右移动 */
 }
 .file-row .btn-download:hover {
     background: #f1f5f9;
 }
 .release-row .btn-download {
-    margin-left: 0.5rem;
+    margin-left: 0.8rem; /* 与文件行一致 */
 }
 
 .file-list, .releases-list {
@@ -732,6 +732,7 @@ export const home = `
 .release-download {
     display: flex;
     gap: 0.5rem;
+    align-items: center; /* 确保垂直居中 */
 }
 
 .docker-tag-list {
