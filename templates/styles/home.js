@@ -685,71 +685,7 @@ export const home = `
     margin-left: 0.5rem;
 }
 
-.file-list, .releases-list {
-    border: 1px solid #e2e8f0;
-    border-radius: 20px;
-    overflow: hidden;
-    margin-bottom: 1.5rem;
-}
-
-.file-row, .release-row {
-    display: flex;
-    align-items: center;
-    padding: 0.8rem 1.5rem;
-    border-bottom: 1px solid #e2e8f0;
-    background: white;
-}
-
-.file-row:last-child, .release-row:last-child {
-    border-bottom: none;
-}
-
-.file-icon, .release-icon {
-    width: 24px;
-    color: #64748b;
-    margin-right: 1rem;
-}
-
-.file-name {
-    flex: 1;
-    font-weight: 500;
-}
-
-.release-info {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-}
-
-.release-tag {
-    font-weight: 600;
-    color: #0f172a;
-}
-
-.release-date {
-    font-size: 0.8rem;
-    color: #64748b;
-}
-
-.release-download {
-    display: flex;
-    gap: 0.5rem;
-}
-
-.docker-tag-list {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    margin-bottom: 2rem;
-}
-
-.tag-row {
-    display: flex;
-    justify-content: space-between;
-    background: #f8fafc;
-    padding: 0.8rem 1.5rem;
-    border-radius: 16px;
-}
+/* 注意：移除了冲突的 .file-icon, .release-icon 通用样式，确保 release 图标颜色正确 */
 
 .section-title {
     font-size: 1.2rem;
