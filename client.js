@@ -2,157 +2,6 @@
 export const clientJS = `
 (async function() {
     // ============================================================================
-    // 0. 添加美化样式
-    // ============================================================================
-    const style = document.createElement('style');
-    style.textContent = \`
-        .folder-row {
-            cursor: pointer;
-        }
-        .folder-icon {
-            color: #f1c40f;
-            margin-right: 0.5rem;
-            width: 20px;
-            text-align: center;
-        }
-        .file-icon {
-            color: #64748b;
-            margin-right: 0.5rem;
-            width: 20px;
-            text-align: center;
-        }
-        .release-icon-colored {
-            color: #22c55e; /* 深绿色，与官网搜索中的 release 标签一致 */
-            margin-right: 0.5rem;
-            width: 20px;
-            text-align: center;
-        }
-        .docker-icon-colored {
-            color: #0b5394; /* 深蓝色，代表 Docker */
-            margin-right: 0.5rem;
-            width: 20px;
-            text-align: center;
-        }
-        .folder-children {
-            margin-left: 20px;
-        }
-        .file-row {
-            display: flex;
-            align-items: center;
-            padding: 0.6rem 1.5rem;
-            border-bottom: 1px solid #e2e8f0;
-            background: white;
-        }
-        .file-row:last-child {
-            border-bottom: none;
-        }
-        .file-row .file-name {
-            flex: 1;
-            font-weight: 500;
-            margin-left: 0.2rem;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .file-row .file-size {
-            color: #64748b;
-            font-size: 0.85rem;
-            margin-right: 1rem;
-            min-width: 80px;
-            text-align: right;
-        }
-        .file-row .btn-download {
-            background: transparent;
-            border: none;
-            color: #1e293b;
-            cursor: pointer;
-            padding: 0.3rem 0.8rem;
-            border-radius: 20px;
-            transition: background 0.2s;
-        }
-        .file-row .btn-download:hover {
-            background: #f1f5f9;
-        }
-        .release-row .btn-download {
-            margin-left: 0.5rem;
-        }
-        /* 调整详情头部的间距 */
-        .detail-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 1rem;
-            flex-wrap: wrap;
-        }
-        .detail-header h2 {
-            margin: 0 1rem;
-            font-size: 1.4rem;
-            flex: 1;
-        }
-        .back-btn {
-            background: #f1f5f9;
-            border: none;
-            border-radius: 40px;
-            padding: 0.5rem 1.3rem;
-            font-weight: 600;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        .version-selector {
-            display: flex;
-            align-items: center;
-            background: #f1f5f9;
-            border-radius: 40px;
-            padding: 0.3rem 1rem 0.3rem 1.2rem;
-            cursor: pointer;
-            user-select: none;
-            gap: 0.5rem;
-        }
-        .version-selector span {
-            font-weight: 500;
-            color: #1e293b;
-        }
-        .version-selector i {
-            font-size: 0.8rem;
-            color: #64748b;
-        }
-        .version-dropdown {
-            position: absolute;
-            top: calc(100% + 8px);
-            right: 0;
-            background: white;
-            border: 1px solid #e2e8f0;
-            border-radius: 20px;
-            box-shadow: 0 12px 24px -8px rgba(0,0,0,0.15);
-            padding: 0.5rem 0;
-            min-width: 140px;
-            z-index: 20;
-            display: none;
-        }
-        .version-dropdown.show {
-            display: block;
-        }
-        .version-item {
-            padding: 0.6rem 1.5rem;
-            font-size: 0.95rem;
-            color: #334155;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-        .version-item:hover {
-            background: #f1f5f9;
-        }
-        .version-item.current {
-            background: #e9f0ff;
-            color: #1e4f8a;
-            font-weight: 600;
-        }
-    \`;
-    document.head.appendChild(style);
-
-    // ============================================================================
     // 1. 核心工具函数
     // ============================================================================
 
@@ -2126,7 +1975,7 @@ export const clientJS = `
         
         const releasesHtml = releases.map(r => \`
             <div class="release-row file-row">
-                <i class="fas fa-tag release-icon-colored"></i>
+                <i class="fas fa-tag release-icon"></i>
                 <div class="release-info">
                     <span class="release-tag">\${r.name}</span>
                     <span class="release-date">\${r.date || ''}</span>
@@ -2163,7 +2012,7 @@ export const clientJS = `
         
         const tagsHtml = tags.map(tag => \`
             <div class="tag-row file-row">
-                <i class="fab fa-docker docker-icon-colored"></i>
+                <i class="fab fa-docker docker-icon"></i>
                 <span class="file-name">\${tag}</span>
                 <span><button class="btn-icon"><i class="fas fa-download"></i> pull</button></span>
             </div>
@@ -2323,7 +2172,7 @@ export const clientJS = `
         }
         let html = '';
         releases.forEach(r => {
-            html += \`<div class="release-row"><i class="fas fa-tag release-icon-colored"></i><div class="release-info"><span class="release-tag">\${r.tag}</span><span class="release-date">\${r.date}</span></div></div>\`;
+            html += \`<div class="release-row"><i class="fas fa-tag release-icon"></i><div class="release-info"><span class="release-tag">\${r.tag}</span><span class="release-date">\${r.date}</span></div></div>\`;
             if (r.assets && r.assets.length > 0) {
                 r.assets.forEach(asset => {
                     const size = asset.size ? (asset.size / 1024).toFixed(2) + ' KB' : '';
