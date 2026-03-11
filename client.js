@@ -1345,7 +1345,7 @@ export const clientJS = `
                 const res = await fetch(\`/api/repo-tree?owner=\${project.owner}&repo=\${project.repo}\`);
                 if (!res.ok) throw new Error('获取文件树失败');
                 backupFileTree = await res.json();
-                renderBackupFileTree(); // 改为使用树状结构
+                renderBackupFileTree(); // 使用树状结构
             } catch (e) {
                 fileTreeContainer.innerHTML = \`<div class="empty-state">加载失败：\${e.message}</div>\`;
             }
@@ -1380,7 +1380,17 @@ export const clientJS = `
         }
     }
 
-    // 备份模态框中的文件树（带复选框）
+    // ===== 新增：排序函数 =====
+    function sortNodes(nodes) {
+        return nodes.sort((a, b) => {
+            if (a.type !== b.type) {
+                return a.type === 'folder' ? -1 : 1; // 文件夹在前
+            }
+            return a.name.localeCompare(b.name);
+        });
+    }
+
+    // 备份模态框中的文件树（带复选框，排序）
     function renderBackupFileTree() {
         if (!backupFileTree || backupFileTree.length === 0) {
             fileTreeContainer.innerHTML = '<div class="empty-state">无文件</div>';
@@ -1391,10 +1401,10 @@ export const clientJS = `
         const tree = buildFileTree(files);
         
         function renderTree(nodes, level = 0) {
-            return nodes.map(node => {
+            return sortNodes(nodes).map(node => {
                 if (node.type === 'folder') {
                     return \`
-                        <div class="folder-row file-row" data-path="\${node.path}">
+                        <div class="folder-row file-row" data-path="\${node.path}" style="margin-left: \${level * 20}px;">
                             <input type="checkbox" class="folder-checkbox" data-path="\${node.path}" style="margin-right: 0.5rem;">
                             <i class="fas fa-folder folder-icon"></i>
                             <span class="file-name">\${node.name}</span>
@@ -1406,7 +1416,7 @@ export const clientJS = `
                     \`;
                 } else {
                     return \`
-                        <div class="file-row" data-path="\${node.path}">
+                        <div class="file-row" data-path="\${node.path}" style="margin-left: \${level * 20}px;">
                             <input type="checkbox" class="file-checkbox" data-path="\${node.path}" style="margin-right: 0.5rem;" checked>
                             <i class="far fa-file file-icon"></i>
                             <span class="file-name">\${node.name}</span>
@@ -1443,7 +1453,8 @@ export const clientJS = `
             cb.addEventListener('change', (e) => {
                 const folderPath = e.target.dataset.path;
                 // 勾选/取消勾选文件夹下所有文件
-                const folderChildren = e.target.closest('.folder-row').nextElementSibling;
+                const folderRow = e.target.closest('.folder-row');
+                const folderChildren = folderRow.nextElementSibling;
                 if (folderChildren) {
                     const checkboxes = folderChildren.querySelectorAll('.file-checkbox');
                     checkboxes.forEach(cb2 => cb2.checked = e.target.checked);
@@ -1468,8 +1479,6 @@ export const clientJS = `
             selectAllFiles.indeterminate = count > 0 && count < backupFileTree.length;
         }
     }
-
-    // 原有的 renderFileTree 保留用于兼容？不再使用，替换为 renderBackupFileTree
 
     function renderReleases() {
         if (!backupReleases || backupReleases.length === 0) {
@@ -1992,7 +2001,7 @@ export const clientJS = `
         detailView.innerHTML = html;
         attachDetailEventHandlers(type, project, versions);
         
-        // 加载 README 或 Overview
+        // 加载 README
         if (type === 'github') {
             await loadReadme(project, versions[currentVersionIndex], bucketId);
         } else {
@@ -2001,25 +2010,28 @@ export const clientJS = `
     }
 
     async function loadReadme(project, version, bucketId) {
-        // 在元数据中查找 README.md 文件
+        // 在元数据中查找 README.md 文件（不区分大小写）
         const metaData = cachedMetaData[version.metaPath];
         if (!metaData || !metaData.files) return;
         
         const readmeFile = metaData.files.find(f => f.path.toLowerCase() === 'readme.md');
-        if (!readmeFile) return;
+        if (!readmeFile) {
+            console.log('No README.md found in metadata');
+            return;
+        }
         
         // 从 B2 获取内容
         const readmeKey = readmeFile.key; // 已经在元数据中存储了 key
         try {
-            const { client, bucket } = await getB2Client(bucketId, env); // 但这里没有 env，需要从全局获取？实际上 client.js 没有 env，需要另外实现。
-            // 由于 client.js 是前端，不能直接使用 getB2Client，我们需要通过 API 获取文件内容。
-            // 我们可以调用 /api/file?path=... 接口。
             const res = await fetch(\`/api/file?path=\${encodeURIComponent(readmeKey)}&bucketId=\${bucketId}\`);
-            if (!res.ok) throw new Error('Failed to fetch README');
+            if (!res.ok) {
+                console.error('Failed to fetch README:', res.status);
+                return;
+            }
             const content = await res.text();
             
             // 渲染 Markdown
-            const readmeHtml = marked.parse(content); // 需要引入 marked 库
+            const readmeHtml = marked.parse(content);
             const readmeContainer = document.getElementById('readme-container');
             if (readmeContainer) {
                 readmeContainer.innerHTML = readmeHtml;
@@ -2038,20 +2050,11 @@ export const clientJS = `
         // 对 files 按路径构建树，并在每层排序：文件夹在前，文件在后，按名称字母排序
         const fileTree = buildFileTree(files);
         
-        function sortNodes(nodes) {
-            return nodes.sort((a, b) => {
-                if (a.type !== b.type) {
-                    return a.type === 'folder' ? -1 : 1; // 文件夹在前
-                }
-                return a.name.localeCompare(b.name);
-            });
-        }
-        
         function renderTree(nodes, level = 0) {
             return sortNodes(nodes).map(node => {
                 if (node.type === 'folder') {
                     return \`
-                        <div class="folder-row file-row" data-path="\${node.path}">
+                        <div class="folder-row file-row" data-path="\${node.path}" style="margin-left: \${level * 20}px;">
                             <i class="fas fa-folder folder-icon"></i>
                             <span class="file-name">\${node.name}</span>
                             <span class="file-size"></span>
@@ -2063,7 +2066,7 @@ export const clientJS = `
                 } else {
                     const sizeStr = formatFileSize(node.size);
                     return \`
-                        <div class="file-row" data-path="\${node.path}">
+                        <div class="file-row" data-path="\${node.path}" style="margin-left: \${level * 20}px;">
                             <i class="far fa-file file-icon"></i>
                             <span class="file-name">\${node.name}</span>
                             <span class="file-size">\${sizeStr}</span>
