@@ -629,12 +629,14 @@ export const home = `
     width: 20px;
     text-align: center;
 }
+/* Release 图标专用颜色（深绿色） */
 .release-icon {
-    color: #166534; /* 深绿色，与官网 release 按钮文字色一致 */
+    color: #166534;
     margin-right: 0.5rem;
     width: 20px;
     text-align: center;
 }
+/* Docker 图标专用颜色 */
 .docker-icon {
     color: #0b5394;
     margin-right: 0.5rem;
@@ -685,7 +687,66 @@ export const home = `
     margin-left: 0.5rem;
 }
 
-/* 注意：移除了冲突的 .file-icon, .release-icon 通用样式，确保 release 图标颜色正确 */
+.file-list, .releases-list {
+    border: 1px solid #e2e8f0;
+    border-radius: 20px;
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+}
+
+.file-row, .release-row {
+    display: flex;
+    align-items: center;
+    padding: 0.8rem 1.5rem;
+    border-bottom: 1px solid #e2e8f0;
+    background: white;
+}
+
+.file-row:last-child, .release-row:last-child {
+    border-bottom: none;
+}
+
+/* 移除之前的通用样式，避免覆盖 */
+.file-name {
+    flex: 1;
+    font-weight: 500;
+}
+
+.release-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.release-tag {
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.release-date {
+    font-size: 0.8rem;
+    color: #64748b;
+}
+
+.release-download {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.docker-tag-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.tag-row {
+    display: flex;
+    justify-content: space-between;
+    background: #f8fafc;
+    padding: 0.8rem 1.5rem;
+    border-radius: 16px;
+}
 
 .section-title {
     font-size: 1.2rem;
