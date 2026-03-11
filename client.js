@@ -1339,12 +1339,12 @@ export const clientJS = `
             if (selectedFilesCount) selectedFilesCount.innerText = '全部文件';
             if (selectedReleasesCount) selectedReleasesCount.innerText = '0 个版本';
 
-            // 加载文件树（路径数组）
+            // 加载文件树
             try {
                 const res = await fetch(\`/api/repo-tree?owner=\${project.owner}&repo=\${project.repo}\`);
                 if (!res.ok) throw new Error('获取文件树失败');
-                backupFileTree = await res.json(); // 数组，每个元素是路径字符串
-                renderBackupFileTree(); // 使用新函数渲染带复选框的树
+                backupFileTree = await res.json();
+                renderFileTree();
             } catch (e) {
                 fileTreeContainer.innerHTML = \`<div class="empty-state">加载失败：\${e.message}</div>\`;
             }
@@ -1379,61 +1379,62 @@ export const clientJS = `
         }
     }
 
-    // 新的后台文件树渲染函数（带复选框和文件夹展开/折叠）
-    function renderBackupFileTree() {
+    function renderFileTree() {
         if (!backupFileTree || backupFileTree.length === 0) {
             fileTreeContainer.innerHTML = '<div class="empty-state">无文件</div>';
             return;
         }
-
-        // 构建树结构
-        const tree = buildFileTreeFromPaths(backupFileTree.map(path => ({ path, size: 0 }))); // 后台不需要大小，传0
-
-        function sortNodes(nodes) {
-            return nodes.sort((a, b) => {
-                if (a.type !== b.type) {
-                    return a.type === 'folder' ? -1 : 1; // 文件夹在前
-                }
-                return a.name.localeCompare(b.name);
+        // 将 flat 文件列表转换为树结构，并添加复选框
+        const fileListForTree = backupFileTree.map(path => ({ path, size: 0 })); // 模态框中不需要大小，所以传0
+        const tree = buildFileTree(fileListForTree);
+        
+        function renderTree(nodes) {
+            // 对节点排序：文件夹在前，文件在后，按名称排序
+            const sorted = nodes.sort((a, b) => {
+                if (a.type === b.type) return a.name.localeCompare(b.name);
+                return a.type === 'folder' ? -1 : 1;
             });
-        }
-
-        function renderBackupTree(nodes, level = 0) {
-            return nodes.map(node => {
+            return sorted.map(node => {
                 if (node.type === 'folder') {
                     return \`
-                        <div class="folder-row file-row" data-path="\${node.path}">
+                        <div class="folder-row file-item" data-path="\${node.path}">
+                            <input type="checkbox" class="file-checkbox" data-path="\${node.path}" checked>
                             <i class="fas fa-folder folder-icon"></i>
                             <span class="file-name">\${node.name}</span>
-                            <span class="file-size"></span>
                         </div>
                         <div class="folder-children" style="display: none;">
-                            \${renderBackupTree(sortNodes(node.children), level + 1)}
+                            \${renderTree(node.children)}
                         </div>
                     \`;
                 } else {
                     return \`
-                        <div class="file-row" data-path="\${node.path}">
+                        <div class="file-item" data-path="\${node.path}">
+                            <input type="checkbox" class="file-checkbox" data-path="\${node.path}" checked>
                             <i class="far fa-file file-icon"></i>
                             <span class="file-name">\${node.name}</span>
-                            <input type="checkbox" class="file-checkbox" data-path="\${node.path}" style="margin-left: auto; margin-right: 0.5rem;">
                         </div>
                     \`;
                 }
             }).join('');
         }
+        
+        const html = renderTree(tree);
+        fileTreeContainer.innerHTML = html;
 
-        const sortedRoot = sortNodes(tree);
-        fileTreeContainer.innerHTML = renderBackupTree(sortedRoot);
-
-        // 绑定展开/折叠事件
-        document.querySelectorAll('.folder-row').forEach(folder => {
-            folder.addEventListener('click', (e) => {
-                const children = folder.nextElementSibling;
+        // 绑定事件
+        document.querySelectorAll('.file-checkbox').forEach(cb => {
+            cb.addEventListener('change', updateSelectedFiles);
+        });
+        
+        // 文件夹展开/折叠
+        document.querySelectorAll('.folder-row').forEach(row => {
+            row.addEventListener('click', (e) => {
+                if (e.target.type === 'checkbox') return;
+                const children = row.nextElementSibling;
                 if (children && children.classList.contains('folder-children')) {
                     const isHidden = children.style.display === 'none';
                     children.style.display = isHidden ? 'block' : 'none';
-                    const icon = folder.querySelector('.folder-icon');
+                    const icon = row.querySelector('.folder-icon');
                     if (icon) {
                         icon.className = isHidden ? 'fas fa-folder-open folder-icon' : 'fas fa-folder folder-icon';
                     }
@@ -1441,54 +1442,9 @@ export const clientJS = `
             });
         });
 
-        // 绑定复选框事件（更新 selectedFiles）
-        document.querySelectorAll('.file-checkbox').forEach(cb => {
-            cb.addEventListener('change', updateSelectedFilesFromBackup);
-        });
-
-        // 初始选中所有文件（全选状态由外部控制，这里只需更新 selectedFiles）
-        updateSelectedFilesFromBackup();
-    }
-
-    function updateSelectedFilesFromBackup() {
-        selectedFiles.clear();
-        document.querySelectorAll('.file-checkbox:checked').forEach(cb => {
-            selectedFiles.add(cb.dataset.path);
-        });
-        const count = selectedFiles.size;
-        if (selectedFilesCount) {
-            selectedFilesCount.innerText = count === backupFileTree.length ? '全部文件' : \`\${count} 个文件\`;
-        }
-        if (selectAllFiles) {
-            selectAllFiles.checked = count === backupFileTree.length;
-            selectAllFiles.indeterminate = count > 0 && count < backupFileTree.length;
-        }
-    }
-
-    // 原有的 renderFileTree 函数不再使用，但保留以防万一
-    function renderFileTree() {
-        if (!backupFileTree || backupFileTree.length === 0) {
-            fileTreeContainer.innerHTML = '<div class="empty-state">无文件</div>';
-            return;
-        }
-        let html = '';
-        backupFileTree.forEach(path => {
-            html += \`
-                <div class="file-item">
-                    <input type="checkbox" class="file-checkbox" data-path="\${path}" checked>
-                    <span class="file-name">\${path}</span>
-                </div>
-            \`;
-        });
-        fileTreeContainer.innerHTML = html;
-
-        document.querySelectorAll('.file-checkbox').forEach(cb => {
-            cb.addEventListener('change', updateSelectedFiles);
-        });
         updateSelectedFiles();
     }
 
-    // 原有的 updateSelectedFiles 保持不变（用于兼容）
     function updateSelectedFiles() {
         selectedFiles.clear();
         document.querySelectorAll('.file-checkbox:checked').forEach(cb => {
@@ -1503,41 +1459,6 @@ export const clientJS = `
             selectAllFiles.indeterminate = count > 0 && count < backupFileTree.length;
         }
     }
-
-    // 构建树（从路径数组）
-    function buildFileTreeFromPaths(files) {
-        const tree = [];
-        const map = {};
-        files.forEach(f => {
-            const parts = f.path.split('/');
-            let current = tree;
-            let currentPath = '';
-            for (let i = 0; i < parts.length; i++) {
-                const part = parts[i];
-                currentPath += (currentPath ? '/' : '') + part;
-                let node = current.find(n => n.name === part && n.type === (i === parts.length - 1 ? 'file' : 'folder'));
-                if (!node) {
-                    node = {
-                        name: part,
-                        type: i === parts.length - 1 ? 'file' : 'folder',
-                        path: currentPath,
-                        size: i === parts.length - 1 ? f.size : 0,
-                        children: i === parts.length - 1 ? null : []
-                    };
-                    current.push(node);
-                    if (node.type === 'folder') {
-                        map[currentPath] = node.children;
-                    }
-                }
-                if (node.type === 'folder') {
-                    current = node.children;
-                }
-            }
-        });
-        return tree;
-    }
-
-    // 其余函数保持不变（renderReleases, renderTags, 等）
 
     function renderReleases() {
         if (!backupReleases || backupReleases.length === 0) {
@@ -1815,7 +1736,7 @@ export const clientJS = `
     if (selectAllFiles) {
         selectAllFiles.addEventListener('change', (e) => {
             document.querySelectorAll('.file-checkbox').forEach(cb => cb.checked = e.target.checked);
-            updateSelectedFilesFromBackup(); // 使用新函数
+            updateSelectedFiles();
         });
     }
 
@@ -1971,7 +1892,7 @@ export const clientJS = `
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     }
 
-    // 构建文件树（从元数据中的 files 数组）
+    // 构建文件树
     function buildFileTree(files) {
         const tree = [];
         const map = {};
@@ -2002,16 +1923,6 @@ export const clientJS = `
             }
         });
         return tree;
-    }
-
-    // 排序函数：文件夹在前，文件在后，按名称排序
-    function sortNodes(nodes) {
-        return nodes.sort((a, b) => {
-            if (a.type !== b.type) {
-                return a.type === 'folder' ? -1 : 1;
-            }
-            return a.name.localeCompare(b.name);
-        });
     }
 
     async function showDetail(type, project) {
@@ -2077,8 +1988,12 @@ export const clientJS = `
         
         const fileTree = buildFileTree(files);
         
-        function renderTree(nodes) {
-            const sorted = sortNodes(nodes);
+        function renderTree(nodes, level = 0) {
+            // 对节点排序：文件夹在前，文件在后，按名称排序
+            const sorted = nodes.sort((a, b) => {
+                if (a.type === b.type) return a.name.localeCompare(b.name);
+                return a.type === 'folder' ? -1 : 1;
+            });
             return sorted.map(node => {
                 if (node.type === 'folder') {
                     return \`
@@ -2088,7 +2003,7 @@ export const clientJS = `
                             <span class="file-size"></span>
                         </div>
                         <div class="folder-children" style="display: none;">
-                            \${renderTree(node.children)}
+                            \${renderTree(node.children, level + 1)}
                         </div>
                     \`;
                 } else {
@@ -2121,6 +2036,19 @@ export const clientJS = `
             </div>
         \`).join('');
         
+        // 添加 README 区域（如果存在 README.md 文件）
+        const readmeFile = files.find(f => f.path.toLowerCase() === 'readme.md' || f.path.toLowerCase().endsWith('/readme.md'));
+        let readmeHtml = '';
+        if (readmeFile) {
+            // 从 B2 获取 README 内容（需要后端支持）
+            readmeHtml = \`
+                <div class="readme-section">
+                    <h3>README.md</h3>
+                    <div class="readme-content" id="readme-content">加载中...</div>
+                </div>
+            \`;
+        }
+        
         return \`
             <div class="detail-header">
                 <button class="back-btn" id="backBtn"><i class="fas fa-arrow-left"></i> 返回列表</button>
@@ -2135,6 +2063,7 @@ export const clientJS = `
             <h2><i class="fab fa-github"></i> \${project.name}</h2>
             <div class="file-list">\${filesHtml}</div>
             \${releasesHtml ? '<div class="section-title">Releases</div>' + '<div class="releases-list">' + releasesHtml + '</div>' : ''}
+            \${readmeHtml}
             <p style="margin-top:1rem; color:#475569;"><i class="fas fa-info-circle"></i> 文件列表和Releases随版本切换</p>
         \`;
     }
@@ -2152,6 +2081,14 @@ export const clientJS = `
             </div>
         \`).join('');
         
+        // Docker 显示 Overview（从 registry 获取？暂时留空）
+        const overviewHtml = \`
+            <div class="readme-section">
+                <h3>Overview</h3>
+                <div class="readme-content">Docker 镜像概览信息（待实现）</div>
+            </div>
+        \`;
+        
         return \`
             <div class="detail-header">
                 <button class="back-btn" id="backBtn"><i class="fas fa-arrow-left"></i> 返回列表</button>
@@ -2165,6 +2102,7 @@ export const clientJS = `
             </div>
             <h2><i class="fab fa-docker"></i> \${project.name}</h2>
             <div class="docker-tag-list">\${tagsHtml}</div>
+            \${overviewHtml}
             <p style="margin-top:1rem; color:#475569;"><i class="fas fa-info-circle"></i> 标签列表随版本切换</p>
         \`;
     }
@@ -2228,12 +2166,22 @@ export const clientJS = `
                 const bucket = btn.dataset.bucket;
                 const url = btn.dataset.url;
                 if (path && bucket) {
+                    // 构造下载链接，需要后端实现 /api/download
                     alert(\`下载文件: \${path}\`);
                 } else if (url) {
                     window.open(url, '_blank');
                 }
             });
         });
+        
+        // 加载 README 内容
+        const readmeContent = document.getElementById('readme-content');
+        if (readmeContent) {
+            // 这里需要根据实际存储路径获取 README 内容，暂时模拟
+            setTimeout(() => {
+                readmeContent.innerHTML = '<p>README 内容将在这里显示（需要后端支持）</p>';
+            }, 500);
+        }
         
         document.addEventListener('click', function closeDropdown(e) {
             if (selector && !selector.contains(e.target) && dropdown) {
