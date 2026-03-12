@@ -2,7 +2,7 @@
 export const clientJS = `
 (async function() {
     // ============================================================================
-    // 0. 核心工具函数
+    // 1. 核心工具函数
     // ============================================================================
 
     function safeGet(id) {
@@ -14,7 +14,7 @@ export const clientJS = `
     const apiBase = '/api';
 
     // ============================================================================
-    // 1. 全局变量定义
+    // 2. 全局变量定义
     // ============================================================================
 
     let githubProjects = [], dockerProjects = [], buckets = [], config = {};
@@ -66,7 +66,7 @@ export const clientJS = `
     let currentDetailTab = 'readme';
 
     // ============================================================================
-    // 2. 数据加载与更新
+    // 3. 数据加载与更新
     // ============================================================================
 
     async function loadData() {
@@ -101,7 +101,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 3. 登录状态管理
+    // 4. 登录状态管理
     // ============================================================================
 
     let isLoggedIn = false;
@@ -139,7 +139,7 @@ export const clientJS = `
     setLoggedIn(false);
 
     // ============================================================================
-    // 4. 桶卡片渲染
+    // 5. 桶卡片渲染
     // ============================================================================
 
     function renderBucketsCards() {
@@ -212,7 +212,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 5. 桶管理
+    // 6. 桶管理
     // ============================================================================
 
     const bucketsList = safeGet('bucketsList');
@@ -498,7 +498,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 6. 保存自定义主机名配置
+    // 7. 保存自定义主机名配置
     // ============================================================================
     const saveHostnameBtn = safeGet('saveHostnameBtn');
     if (saveHostnameBtn) {
@@ -528,7 +528,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 7. 保存自动监控配置
+    // 8. 保存自动监控配置
     // ============================================================================
     const saveMonitorBtn = safeGet('saveMonitorBtn');
     const monitorSwitch = safeGet('monitorSwitch');
@@ -560,7 +560,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 8. 令牌管理（GitHub 和 Docker）
+    // 9. 令牌管理（GitHub 和 Docker）
     // ============================================================================
 
     async function loadGithubTokens() {
@@ -870,7 +870,7 @@ export const clientJS = `
     if (deleteDockerBtn) deleteDockerBtn.addEventListener('click', toggleDockerDeleteMode);
 
     // ============================================================================
-    // 9. 首页搜索功能
+    // 10. 首页搜索功能
     // ============================================================================
 
     const modeToggleBtn = safeGet('modeToggleBtn');
@@ -884,9 +884,37 @@ export const clientJS = `
     function toggleSearchMode() {
         searchMode = searchMode === 'local' ? 'official' : 'local';
         if (modeText) modeText.innerText = searchMode === 'local' ? '存储库' : (currentTab === 'github' ? 'GitHub 搜索' : 'Docker 搜索');
-        if (officialCard) officialCard.classList.add('hide');
+        if (searchMode === 'local') {
+            // 切换到存储库模式：隐藏官方卡片，显示所有项目（清除过滤）
+            if (officialCard) officialCard.classList.add('hide');
+            [githubGrid, dockerGrid].forEach(grid => {
+                if (grid) {
+                    grid.querySelectorAll('.project-card').forEach(card => card.style.display = '');
+                }
+            });
+        } else {
+            // 切换到官方模式：显示所有项目（清除过滤），准备官网搜索
+            [githubGrid, dockerGrid].forEach(grid => {
+                if (grid) {
+                    grid.querySelectorAll('.project-card').forEach(card => card.style.display = '');
+                }
+            });
+            if (officialCard) officialCard.classList.add('hide');
+        }
     }
     if (modeToggleBtn) modeToggleBtn.addEventListener('click', toggleSearchMode);
+
+    // 根据关键词过滤本地项目卡片（仅当前标签页）
+    function filterLocalProjects(query) {
+        const lowerQuery = query.toLowerCase();
+        const currentGrid = currentTab === 'github' ? githubGrid : dockerGrid;
+        if (!currentGrid) return;
+        const cards = currentGrid.querySelectorAll('.project-card');
+        cards.forEach(card => {
+            const name = card.dataset.name || '';
+            card.style.display = name.includes(lowerQuery) ? '' : 'none';
+        });
+    }
 
     async function loadOfficialResults(query, type, page) {
         if (officialLoading) return;
@@ -1038,39 +1066,16 @@ export const clientJS = `
             const query = homeSearchInput ? homeSearchInput.value.trim() : '';
             if (!query) { alert('请输入搜索关键词'); return; }
             if (searchMode === 'local') {
-                const allProjects = [...githubProjects, ...dockerProjects];
-                const results = allProjects.filter(p => p.name.toLowerCase().includes(query.toLowerCase()));
-                if (results.length === 0) { alert('未找到本地项目'); return; }
-                if (officialResultsList) {
-                    officialResultsList.innerHTML = results.map(p => {
-                        const type = p.homepage.includes('github') ? 'github' : 'docker';
-                        const isGitHub = type === 'github';
-                        const bgIconClass = isGitHub ? 'fab fa-github' : 'fab fa-docker';
-                        const hasReleases = p.versions && p.versions.some(v => v.releases && v.releases.length > 0);
-                        const releaseButton = hasReleases ? \`<button class="btn-icon btn-release" data-project='\${JSON.stringify(p)}'><i class="fas fa-tag"></i> Releases</button>\` : '';
-                        return \`
-                            <div class="official-result-item">
-                                <div class="card-bg-icon"><i class="\${bgIconClass}"></i></div>
-                                <div class="official-item-header">
-                                    <a href="\${p.homepage}" target="_blank" class="official-item-name">\${p.name}</a>
-                                    <div class="official-item-stats">
-                                        <span><i class="\${isGitHub ? 'fas fa-code-branch' : 'fas fa-download'}"></i> 0</span>
-                                        <span><i class="far fa-star"></i> 0</span>
-                                    </div>
-                                    <span class="official-item-lastupdate"><i class="far fa-calendar-alt"></i> \${p.lastUpdate}</span>
-                                </div>
-                                <div class="official-item-description">存储库项目</div>
-                                <div class="official-item-actions">
-                                    <button class="btn-icon git-link-btn"><i class="far fa-copy"></i> Git链接</button>
-                                    <button class="btn-icon btn-download"><i class="fas fa-file-zipper"></i> 下载ZIP</button>
-                                    <button class="btn-icon btn-stream"><i class="fas fa-water"></i> 流式</button>
-                                    \${releaseButton}
-                                </div>
-                            </div>\`;
-                    }).join('');
-                }
-                if (officialCard) officialCard.classList.remove('hide');
+                // 存储库模式：隐藏官方卡片，过滤本地项目
+                if (officialCard) officialCard.classList.add('hide');
+                filterLocalProjects(query);
             } else {
+                // 官网搜索模式：清除所有本地过滤（显示所有项目），然后执行官网搜索
+                [githubGrid, dockerGrid].forEach(grid => {
+                    if (grid) {
+                        grid.querySelectorAll('.project-card').forEach(card => card.style.display = '');
+                    }
+                });
                 officialQuery = query;
                 officialType = currentTab === 'github' ? 'github' : 'docker';
                 officialCurrentPage = 1;
@@ -1083,7 +1088,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 10. 后台项目添加搜索
+    // 11. 后台项目添加搜索
     // ============================================================================
 
     const addModeToggle = safeGet('addModeToggle');
@@ -1291,7 +1296,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 11. 两步备份流程函数（支持 GitHub 和 Docker）
+    // 12. 两步备份流程函数（支持 GitHub 和 Docker）
     // ============================================================================
 
     const backupModal = safeGet('backupContentModal');
@@ -1383,7 +1388,7 @@ export const clientJS = `
         }
     }
 
-    // 排序函数
+    // ===== 新增：排序函数 =====
     function sortNodes(nodes) {
         return nodes.sort((a, b) => {
             if (a.type !== b.type) {
@@ -1399,7 +1404,7 @@ export const clientJS = `
             fileTreeContainer.innerHTML = '<div class="empty-state">无文件</div>';
             return;
         }
-        // 构建树结构
+        // 构建树结构（与详情页相同）
         const files = backupFileTree.map(path => ({ path, size: 0 })); // 备份时没有大小信息
         const tree = buildFileTree(files);
         
@@ -1848,7 +1853,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 12. 队列信息显示
+    // 13. 队列信息显示
     // ============================================================================
 
     const queueMenuBtn = safeGet('queueMenuBtn');
@@ -1922,7 +1927,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 13. 项目卡片渲染（从 D1 读取数据）
+    // 14. 项目卡片渲染（从 D1 读取数据）
     // ============================================================================
 
     const githubGrid = safeGet('githubGrid');
@@ -1938,6 +1943,7 @@ export const clientJS = `
 
     function createProjectCard(proj, type) {
         const card = document.createElement('div'); card.className = 'project-card';
+        card.dataset.name = proj.name.toLowerCase(); // 存储小写项目名用于搜索
         const isGitHub = type === 'github';
         // 从 versions 中获取最新版本的日期
         const latestVersion = proj.versions && proj.versions.length > 0 ? proj.versions[proj.versions.length - 1] : { date: proj.lastUpdate };
@@ -1973,7 +1979,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 14. 详情页加载（从 B2 获取元数据，美化文件树）
+    // 15. 详情页加载（从 B2 获取元数据，美化文件树）
     // ============================================================================
 
     // 格式化文件大小
@@ -2072,7 +2078,7 @@ export const clientJS = `
         detailView.innerHTML = html;
         attachDetailEventHandlers(type, project, versions);
         
-        // 加载 README
+        // 加载 README（如果是 GitHub 项目）
         if (type === 'github') {
             const readmeContent = await loadReadme(project, versions[currentVersionIndex], bucketId);
             const readmeContainer = document.getElementById('readme-container');
@@ -2184,7 +2190,6 @@ export const clientJS = `
         
         const filesHtml = renderTree(fileTree);
         
-        // 生成 Releases 列表 HTML
         const releasesHtml = releases.map(r => \`
             <div class="release-row file-row">
                 <i class="fas fa-tag release-icon"></i>
@@ -2199,7 +2204,7 @@ export const clientJS = `
             </div>
         \`).join('');
         
-        // 标签页
+        // 标签页样式（复用自动监控卡片样式）
         const tabsHtml = \`
             <div class="token-header" style="margin-top: 1rem; margin-bottom: 1rem;">
                 <div class="token-tabs" id="detailTabs">
@@ -2337,7 +2342,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 15. 悬浮窗（Releases）
+    // 16. 悬浮窗（Releases）- 保持不变
     // ============================================================================
 
     const popup = safeGet('releasesPopup');
@@ -2427,7 +2432,7 @@ export const clientJS = `
     if (popup) popup.addEventListener('click', (e) => { if (e.target === popup) popup.style.display = 'none'; });
 
     // ============================================================================
-    // 16. 标签切换
+    // 17. 标签切换
     // ============================================================================
 
     function setActiveTab(tabId) {
@@ -2442,6 +2447,20 @@ export const clientJS = `
             if (githubGrid) githubGrid.classList.add('hide');
             if (dockerGrid) dockerGrid.classList.remove('hide');
         }
+        // 如果当前是存储库模式且有搜索词，重新应用过滤
+        if (searchMode === 'local') {
+            const query = homeSearchInput ? homeSearchInput.value.trim() : '';
+            if (query) {
+                filterLocalProjects(query);
+            } else {
+                // 没有搜索词，显示所有
+                [githubGrid, dockerGrid].forEach(grid => {
+                    if (grid) {
+                        grid.querySelectorAll('.project-card').forEach(card => card.style.display = '');
+                    }
+                });
+            }
+        }
         if (searchMode === 'official' && modeText) {
             modeText.innerText = currentTab === 'github' ? 'GitHub 搜索' : 'Docker 搜索';
         }
@@ -2450,7 +2469,7 @@ export const clientJS = `
     tabs.forEach(tab => tab.addEventListener('click', () => setActiveTab(tab.dataset.tab)));
 
     // ============================================================================
-    // 17. 任务轮询
+    // 18. 任务轮询
     // ============================================================================
 
     function pollTaskStatus(taskId) {
@@ -2477,7 +2496,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 18. 事件绑定（登录等）
+    // 19. 事件绑定（登录等）
     // ============================================================================
 
     if (loginBtn) loginBtn.addEventListener('click', () => { if (loginModal) loginModal.style.display = 'flex'; });
@@ -2525,7 +2544,7 @@ export const clientJS = `
     });
 
     // ============================================================================
-    // 19. 日志挂件
+    // 20. 日志挂件
     // ============================================================================
     const logFab = safeGet('log-widget-fab');
     const logBadge = safeGet('log-widget-badge');
@@ -2594,7 +2613,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 20. 初始化
+    // 21. 初始化
     // ============================================================================
 
     await loadData();
