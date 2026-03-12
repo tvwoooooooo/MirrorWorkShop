@@ -2,7 +2,7 @@
 export const clientJS = `
 (async function() {
     // ============================================================================
-    // 1. 核心工具函数
+    // 0. 核心工具函数
     // ============================================================================
 
     function safeGet(id) {
@@ -14,7 +14,7 @@ export const clientJS = `
     const apiBase = '/api';
 
     // ============================================================================
-    // 2. 全局变量定义
+    // 1. 全局变量定义
     // ============================================================================
 
     let githubProjects = [], dockerProjects = [], buckets = [], config = {};
@@ -61,10 +61,12 @@ export const clientJS = `
     let currentVersionIndex = 0;
     let cachedMetaData = {}; // 按 metaPath 缓存元数据
     let cachedReadme = {}; // 按 metaPath 缓存 README 内容
-    let currentDetailTab = 'readme'; // 当前详情页的标签（'readme' 或 'releases'）
+
+    // 当前详情页的标签（'readme' 或 'releases'）
+    let currentDetailTab = 'readme';
 
     // ============================================================================
-    // 3. 数据加载与更新
+    // 2. 数据加载与更新
     // ============================================================================
 
     async function loadData() {
@@ -99,7 +101,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 4. 登录状态管理
+    // 3. 登录状态管理
     // ============================================================================
 
     let isLoggedIn = false;
@@ -137,7 +139,7 @@ export const clientJS = `
     setLoggedIn(false);
 
     // ============================================================================
-    // 5. 桶卡片渲染
+    // 4. 桶卡片渲染
     // ============================================================================
 
     function renderBucketsCards() {
@@ -210,7 +212,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 6. 桶管理
+    // 5. 桶管理
     // ============================================================================
 
     const bucketsList = safeGet('bucketsList');
@@ -496,7 +498,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 7. 保存自定义主机名配置
+    // 6. 保存自定义主机名配置
     // ============================================================================
     const saveHostnameBtn = safeGet('saveHostnameBtn');
     if (saveHostnameBtn) {
@@ -526,7 +528,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 8. 保存自动监控配置
+    // 7. 保存自动监控配置
     // ============================================================================
     const saveMonitorBtn = safeGet('saveMonitorBtn');
     const monitorSwitch = safeGet('monitorSwitch');
@@ -558,7 +560,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 9. 令牌管理（GitHub 和 Docker）
+    // 8. 令牌管理（GitHub 和 Docker）
     // ============================================================================
 
     async function loadGithubTokens() {
@@ -868,7 +870,7 @@ export const clientJS = `
     if (deleteDockerBtn) deleteDockerBtn.addEventListener('click', toggleDockerDeleteMode);
 
     // ============================================================================
-    // 10. 首页搜索功能
+    // 9. 首页搜索功能
     // ============================================================================
 
     const modeToggleBtn = safeGet('modeToggleBtn');
@@ -1081,7 +1083,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 11. 后台项目添加搜索
+    // 10. 后台项目添加搜索
     // ============================================================================
 
     const addModeToggle = safeGet('addModeToggle');
@@ -1289,7 +1291,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 12. 两步备份流程函数（支持 GitHub 和 Docker）
+    // 11. 两步备份流程函数（支持 GitHub 和 Docker）
     // ============================================================================
 
     const backupModal = safeGet('backupContentModal');
@@ -1381,7 +1383,7 @@ export const clientJS = `
         }
     }
 
-    // ===== 排序函数 =====
+    // 排序函数
     function sortNodes(nodes) {
         return nodes.sort((a, b) => {
             if (a.type !== b.type) {
@@ -1397,7 +1399,7 @@ export const clientJS = `
             fileTreeContainer.innerHTML = '<div class="empty-state">无文件</div>';
             return;
         }
-        // 构建树结构（与详情页相同）
+        // 构建树结构
         const files = backupFileTree.map(path => ({ path, size: 0 })); // 备份时没有大小信息
         const tree = buildFileTree(files);
         
@@ -1472,9 +1474,9 @@ export const clientJS = `
             cb.addEventListener('change', (e) => {
                 e.stopPropagation();
                 // 更新所在文件夹的状态
-                const parentRow = e.target.closest('.file-row').previousElementSibling;
+                let parentRow = e.target.closest('.file-row').previousElementSibling;
                 while (parentRow && !parentRow.classList.contains('folder-row')) {
-                    // 向上找文件夹行
+                    parentRow = parentRow.previousElementSibling;
                 }
                 if (parentRow && parentRow.classList.contains('folder-row')) {
                     updateFolderCheckbox(parentRow);
@@ -1567,7 +1569,7 @@ export const clientJS = `
                         \${hasAssets ? \`<input type="checkbox" class="release-checkbox" data-release-idx="\${idx}">\` : '<span style="width: 20px;"></span>'}
                         <span class="release-tag">\${release.tag}</span>
                         <span class="release-date">\${release.date}</span>
-                        <i class="fas fa-chevron-down" style="margin-left: auto; cursor: pointer;"></i>
+                        <i class="fas fa-chevron-down" style="margin-left: 0.5rem; cursor: pointer;"></i>
                     </div>
                     <div class="release-assets">
                         \${assetsHtml}
@@ -1827,7 +1829,7 @@ export const clientJS = `
                 cb.checked = checked;
                 cb.indeterminate = false;
             });
-            updateBackupSelectedFiles();
+            updateBackupSelectedFiles(); // 会更新文件夹状态
         });
     }
 
@@ -1846,7 +1848,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 13. 队列信息显示
+    // 12. 队列信息显示
     // ============================================================================
 
     const queueMenuBtn = safeGet('queueMenuBtn');
@@ -1920,7 +1922,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 14. 项目卡片渲染（从 D1 读取数据，无需修改）
+    // 13. 项目卡片渲染（从 D1 读取数据）
     // ============================================================================
 
     const githubGrid = safeGet('githubGrid');
@@ -1971,7 +1973,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 15. 详情页加载（从 B2 获取元数据，美化文件树）
+    // 14. 详情页加载（从 B2 获取元数据，美化文件树）
     // ============================================================================
 
     // 格式化文件大小
@@ -2070,7 +2072,7 @@ export const clientJS = `
         detailView.innerHTML = html;
         attachDetailEventHandlers(type, project, versions);
         
-        // 加载 README（如果是 GitHub 项目）
+        // 加载 README
         if (type === 'github') {
             const readmeContent = await loadReadme(project, versions[currentVersionIndex], bucketId);
             const readmeContainer = document.getElementById('readme-container');
@@ -2197,7 +2199,7 @@ export const clientJS = `
             </div>
         \`).join('');
         
-        // 标签页（复用自动监控卡片样式）
+        // 标签页
         const tabsHtml = \`
             <div class="token-header" style="margin-top: 1rem; margin-bottom: 1rem;">
                 <div class="token-tabs" id="detailTabs">
@@ -2335,7 +2337,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 16. 悬浮窗（Releases）- 保持不变
+    // 15. 悬浮窗（Releases）
     // ============================================================================
 
     const popup = safeGet('releasesPopup');
@@ -2425,7 +2427,7 @@ export const clientJS = `
     if (popup) popup.addEventListener('click', (e) => { if (e.target === popup) popup.style.display = 'none'; });
 
     // ============================================================================
-    // 17. 标签切换
+    // 16. 标签切换
     // ============================================================================
 
     function setActiveTab(tabId) {
@@ -2448,7 +2450,7 @@ export const clientJS = `
     tabs.forEach(tab => tab.addEventListener('click', () => setActiveTab(tab.dataset.tab)));
 
     // ============================================================================
-    // 18. 任务轮询
+    // 17. 任务轮询
     // ============================================================================
 
     function pollTaskStatus(taskId) {
@@ -2475,7 +2477,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 19. 事件绑定（登录等）
+    // 18. 事件绑定（登录等）
     // ============================================================================
 
     if (loginBtn) loginBtn.addEventListener('click', () => { if (loginModal) loginModal.style.display = 'flex'; });
@@ -2523,7 +2525,7 @@ export const clientJS = `
     });
 
     // ============================================================================
-    // 20. 日志挂件
+    // 19. 日志挂件
     // ============================================================================
     const logFab = safeGet('log-widget-fab');
     const logBadge = safeGet('log-widget-badge');
@@ -2592,7 +2594,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 21. 初始化
+    // 20. 初始化
     // ============================================================================
 
     await loadData();

@@ -667,7 +667,7 @@ export const home = `
 .file-row .file-size {
     color: #64748b;
     font-size: 0.85rem;
-    margin-right: 0.3rem; /* 进一步减小右边距 */
+    margin-right: 0.3rem; /* 减小右边距，让大小与下载按钮更近 */
     min-width: 80px;
     text-align: right;
 }
@@ -716,7 +716,8 @@ export const home = `
 .release-info {
     flex: 1;
     display: flex;
-    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
 }
 
 .release-tag {
@@ -725,14 +726,71 @@ export const home = `
 }
 
 .release-date {
-    font-size: 0.8rem;
     color: #64748b;
+    font-size: 0.8rem;
+    margin-left: auto; /* 将日期推到最右边 */
 }
 
 .release-download {
     display: flex;
+    align-items: center;
     gap: 0.5rem;
-    align-items: center; /* 确保垂直居中 */
+}
+
+.release-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    width: 100%;
+}
+
+.release-header input[type="checkbox"] {
+    margin-right: 0.5rem;
+    width: 16px;
+    height: 16px;
+}
+
+.release-header .release-tag {
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.release-header .release-date {
+    color: #64748b;
+    font-size: 0.8rem;
+    margin-left: auto; /* 确保日期在最右边 */
+}
+
+.release-header i.fa-chevron-down {
+    margin-left: 0.5rem;
+    color: #64748b;
+}
+
+.release-assets {
+    margin-left: 2rem;
+    padding-left: 0.5rem;
+    border-left: 2px solid #e2e8f0;
+    display: none;
+}
+.release-assets.expanded {
+    display: block;
+}
+.asset-item {
+    display: flex;
+    align-items: center;
+    padding: 0.3rem 0;
+    font-size: 0.85rem;
+}
+.asset-item input[type="checkbox"] {
+    margin-right: 0.5rem;
+}
+.asset-name {
+    flex: 1;
+}
+.asset-size {
+    color: #64748b;
+    margin-left: 0.5rem;
 }
 
 .docker-tag-list {
@@ -763,5 +821,110 @@ export const home = `
     border: 1px solid #e2e8f0;
     border-radius: 20px;
     margin-top: 1.5rem;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
+    margin-top: 1.5rem;
+    margin-bottom: 1rem;
+    font-weight: 600;
+    line-height: 1.25;
+}
+
+.markdown-body h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+.markdown-body h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+.markdown-body h3 { font-size: 1.25em; }
+.markdown-body h4 { font-size: 1em; }
+.markdown-body h5 { font-size: 0.875em; }
+.markdown-body h6 { font-size: 0.85em; color: #6a737d; }
+
+.markdown-body p {
+    margin-top: 0;
+    margin-bottom: 1rem;
+}
+
+.markdown-body a {
+    color: #0366d6;
+    text-decoration: none;
+}
+.markdown-body a:hover {
+    text-decoration: underline;
+}
+
+.markdown-body ul,
+.markdown-body ol {
+    padding-left: 2em;
+    margin-bottom: 1rem;
+}
+
+.markdown-body blockquote {
+    padding: 0 1em;
+    color: #6a737d;
+    border-left: 0.25em solid #dfe2e5;
+    margin: 0 0 1rem 0;
+}
+
+.markdown-body table {
+    display: block;
+    width: 100%;
+    overflow: auto;
+    margin-bottom: 1rem;
+    border-spacing: 0;
+    border-collapse: collapse;
+}
+
+.markdown-body table th {
+    font-weight: 600;
+    background: #f6f8fa;
+}
+
+.markdown-body table th,
+.markdown-body table td {
+    padding: 6px 13px;
+    border: 1px solid #dfe2e5;
+}
+
+.markdown-body table tr {
+    background-color: #fff;
+    border-top: 1px solid #c6cbd1;
+}
+.markdown-body table tr:nth-child(2n) {
+    background-color: #f6f8fa;
+}
+
+.markdown-body code {
+    padding: 0.2em 0.4em;
+    margin: 0;
+    font-size: 85%;
+    background-color: rgba(27,31,35,0.05);
+    border-radius: 3px;
+    font-family: "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+.markdown-body pre {
+    word-wrap: normal;
+    padding: 1rem;
+    overflow: auto;
+    font-size: 85%;
+    line-height: 1.45;
+    background-color: #f6f8fa;
+    border-radius: 3px;
+    margin-bottom: 1rem;
+}
+
+.markdown-body pre code {
+    background: transparent;
+    padding: 0;
+    margin: 0;
+    font-size: 100%;
+    word-break: normal;
+    white-space: pre;
+    overflow: visible;
 }
 `;
