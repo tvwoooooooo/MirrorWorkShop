@@ -1377,7 +1377,7 @@ export const clientJS = `
                 const res = await fetch(\`/api/repo-tree?owner=\${project.owner}&repo=\${project.repo}\`);
                 if (!res.ok) throw new Error('获取文件树失败');
                 backupFileTree = await res.json();
-                renderBackupFileTree();
+                renderBackupFileTree(); // 使用树状结构
             } catch (e) {
                 fileTreeContainer.innerHTML = \`<div class="empty-state">加载失败：\${e.message}</div>\`;
             }
@@ -1420,39 +1420,6 @@ export const clientJS = `
             }
             return a.name.localeCompare(b.name);
         });
-    }
-
-    // 构建文件树
-    function buildFileTree(files) {
-        const tree = [];
-        const map = {};
-        files.forEach(f => {
-            const parts = f.path.split('/');
-            let current = tree;
-            let currentPath = '';
-            for (let i = 0; i < parts.length; i++) {
-                const part = parts[i];
-                currentPath += (currentPath ? '/' : '') + part;
-                let node = current.find(n => n.name === part && n.type === (i === parts.length - 1 ? 'file' : 'folder'));
-                if (!node) {
-                    node = {
-                        name: part,
-                        type: i === parts.length - 1 ? 'file' : 'folder',
-                        path: currentPath,
-                        size: i === parts.length - 1 ? f.size : 0,
-                        children: i === parts.length - 1 ? null : []
-                    };
-                    current.push(node);
-                    if (node.type === 'folder') {
-                        map[currentPath] = node.children;
-                    }
-                }
-                if (node.type === 'folder') {
-                    current = node.children;
-                }
-            }
-        });
-        return tree;
     }
 
     // 备份模态框中的文件树（带复选框，排序）
@@ -1891,7 +1858,7 @@ export const clientJS = `
                 cb.checked = checked;
                 cb.indeterminate = false;
             });
-            updateBackupSelectedFiles();
+            updateBackupSelectedFiles(); // 会更新文件夹状态
         });
     }
 
@@ -1984,7 +1951,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 14. 项目卡片渲染（从 D1 读取数据）
+    // 14. 项目卡片渲染
     // ============================================================================
 
     const githubGrid = safeGet('githubGrid');
@@ -2000,36 +1967,55 @@ export const clientJS = `
 
     function createProjectCard(proj, type) {
         const card = document.createElement('div'); card.className = 'project-card';
-        card.dataset.name = proj.name.toLowerCase(); // 存储小写项目名用于搜索
+        card.dataset.name = proj.name.toLowerCase(); // 用于本地搜索
         const isGitHub = type === 'github';
-        // 从 versions 中获取最新版本的日期
+        // 从 versions 中获取最新版本的日期和是否有 releases
         const latestVersion = proj.versions && proj.versions.length > 0 ? proj.versions[proj.versions.length - 1] : { date: proj.lastUpdate };
+        const hasAnyReleases = proj.versions && proj.versions.some(v => v.releases && v.releases.length > 0);
         const displayName = isGitHub ? proj.name : proj.name;
         const bgIconClass = type === 'github' ? 'fab fa-github' : 'fab fa-docker';
         
-        // 构建卡片 HTML（仅显示基本信息，详细内容需要点击后加载）
-        card.innerHTML = \`
-            <div class="card-bg-icon"><i class="\${bgIconClass}"></i></div>
+        // 构建卡片 HTML
+        let cardHtml = `
+            <div class="card-bg-icon"><i class="${bgIconClass}"></i></div>
             <div class="card-header">
-                <a class="project-name" data-detail='\${JSON.stringify(proj).replace(/'/g, "&apos;")}' data-type="\${type}">\${displayName}</a>
+                <a class="project-name" data-detail='${JSON.stringify(proj).replace(/'/g, "&apos;")}' data-type="${type}">${displayName}</a>
                 <div class="header-right">
-                    <a href="\${proj.homepage}" target="_blank" class="official-link-btn" title="访问官网"><i class="fas fa-external-link-alt"></i></a>
+                    <a href="${proj.homepage}" target="_blank" class="official-link-btn" title="访问官网"><i class="fas fa-external-link-alt"></i></a>
                 </div>
             </div>
             <div class="project-meta">
-                <span class="meta-item"><i class="far fa-calendar-alt"></i> 最后更新: \${proj.lastUpdate}</span>
-                <span class="meta-item"><i class="far fa-clock"></i> 存入: \${latestVersion.date}</span>
+                <span class="meta-item"><i class="far fa-calendar-alt"></i> 最后更新: ${proj.lastUpdate}</span>
+                <span class="meta-item"><i class="far fa-clock"></i> 存入: ${latestVersion.date}</span>
             </div>
             <div class="action-buttons">
                 <button class="btn-icon git-link-btn"><i class="far fa-copy"></i> Git链接</button>
                 <button class="btn-icon btn-download"><i class="fas fa-file-zipper"></i> 下载ZIP</button>
-                <button class="btn-icon btn-stream"><i class="fas fa-water"></i> 流式</button>
-            </div>\`;
+        `;
+        if (hasAnyReleases) {
+            cardHtml += `<button class="btn-icon btn-release"><i class="fas fa-tag"></i> Releases</button>`;
+        }
+        cardHtml += `</div>`;
+        card.innerHTML = cardHtml;
+
         const nameLink = card.querySelector('.project-name');
         if (nameLink) {
             nameLink.addEventListener('click', (e) => {
                 e.preventDefault();
                 showDetail(type, proj);
+            });
+        }
+        const releaseBtn = card.querySelector('.btn-release');
+        if (releaseBtn) {
+            releaseBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                // 将所有版本的 releases 信息传递给弹出层
+                // 构建符合 showReleasesPopup 期望的格式： [{ date, releases }]
+                const versionsForPopup = proj.versions.map(v => ({
+                    date: v.date,
+                    releases: v.releases || []
+                }));
+                showReleasesPopup(versionsForPopup, proj.name, type, proj.versions.length - 1, false);
             });
         }
         return card;
@@ -2046,6 +2032,39 @@ export const clientJS = `
         const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
         const i = Math.floor(Math.log(bytes) / Math.log(k));
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    // 构建文件树
+    function buildFileTree(files) {
+        const tree = [];
+        const map = {};
+        files.forEach(f => {
+            const parts = f.path.split('/');
+            let current = tree;
+            let currentPath = '';
+            for (let i = 0; i < parts.length; i++) {
+                const part = parts[i];
+                currentPath += (currentPath ? '/' : '') + part;
+                let node = current.find(n => n.name === part && n.type === (i === parts.length - 1 ? 'file' : 'folder'));
+                if (!node) {
+                    node = {
+                        name: part,
+                        type: i === parts.length - 1 ? 'file' : 'folder',
+                        path: currentPath,
+                        size: i === parts.length - 1 ? f.size : 0,
+                        children: i === parts.length - 1 ? null : []
+                    };
+                    current.push(node);
+                    if (node.type === 'folder') {
+                        map[currentPath] = node.children;
+                    }
+                }
+                if (node.type === 'folder') {
+                    current = node.children;
+                }
+            }
+        });
+        return tree;
     }
 
     async function showDetail(type, project) {
@@ -2367,7 +2386,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 16. 悬浮窗（Releases）- 保持不变
+    // 16. 悬浮窗（Releases）
     // ============================================================================
 
     const popup = safeGet('releasesPopup');
