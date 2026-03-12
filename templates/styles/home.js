@@ -239,16 +239,6 @@ export const home = `
     box-shadow: 0 12px 24px -8px rgba(0,0,0,0.1);
 }
 
-/* 存储库搜索高亮卡片 */
-.project-card.search-highlight {
-    background: #fef9e7;
-    border: 1px solid #fde68a;
-    box-shadow: 0 8px 20px rgba(251, 191, 36, 0.1);
-}
-.project-card.search-highlight .card-bg-icon {
-    opacity: 0.08;
-}
-
 .card-bg-icon {
     position: absolute;
     right: 0;
@@ -312,6 +302,18 @@ export const home = `
     transform: scale(1.05);
 }
 
+.project-description {
+    color: #475569;
+    font-size: 0.9rem;
+    margin: 0.5rem 0;
+    line-height: 1.4;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
 .project-meta {
     display: flex;
     flex-wrap: wrap;
@@ -350,6 +352,16 @@ export const home = `
     gap: 0.3rem;
     align-items: center;
     flex-wrap: wrap;
+}
+
+/* 存储库搜索高亮卡片 */
+.project-card.search-highlight {
+    background: #fef9e7;
+    border: 1px solid #fde68a;
+    box-shadow: 0 8px 20px rgba(251, 191, 36, 0.1);
+}
+.project-card.search-highlight .card-bg-icon {
+    opacity: 0.08;
 }
 
 /* 桶卡片 */

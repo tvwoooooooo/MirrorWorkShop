@@ -11,13 +11,14 @@ import { ensureProjectsTable } from '../lib/d1.js';
 export async function handleProjects(type, env) {
     await ensureProjectsTable(env);
     const { results } = await env.DB.prepare(
-        "SELECT name, homepage, last_update, versions FROM projects WHERE type = ?"
+        "SELECT name, homepage, last_update, versions, description FROM projects WHERE type = ?"
     ).bind(type).all();
     const projects = results.map(row => ({
         name: row.name,
         homepage: row.homepage,
         lastUpdate: row.last_update,
-        versions: JSON.parse(row.versions || '[]')
+        versions: JSON.parse(row.versions || '[]'),
+        description: row.description || ''
     }));
     return Response.json(projects);
 }
@@ -109,7 +110,7 @@ export async function handleRepoReleases(request, env) {
  */
 export async function handleDetailedProject(request, env) {
     await ensureProjectsTable(env);
-    const { type, owner, repo, bucketId, files, assets } = await request.json();
+    const { type, owner, repo, bucketId, files, assets, description } = await request.json();
 
     if (type !== 'github') {
         return Response.json({ error: '目前仅支持 GitHub 项目完整备份' }, { status: 400 });
@@ -125,7 +126,7 @@ export async function handleDetailedProject(request, env) {
     }
 
     const taskId = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
-    await createMasterTask(env, taskId, owner, repo, bucketId, files || [], assets || []);
+    await createMasterTask(env, taskId, owner, repo, bucketId, files || [], assets || [], description);
     return Response.json({ success: true, taskId, message: '详细备份任务已提交，正在处理' });
 }
 
