@@ -61,6 +61,7 @@ export const clientJS = `
     let currentVersionIndex = 0;
     let cachedMetaData = {}; // 按 metaPath 缓存元数据
     let cachedReadme = {}; // 按 metaPath 缓存 README 内容
+    let currentDetailTab = 'readme'; // 当前详情页的标签（'readme' 或 'releases'）
 
     // ============================================================================
     // 3. 数据加载与更新
@@ -1380,7 +1381,7 @@ export const clientJS = `
         }
     }
 
-    // ===== 新增：排序函数 =====
+    // ===== 排序函数 =====
     function sortNodes(nodes) {
         return nodes.sort((a, b) => {
             if (a.type !== b.type) {
@@ -1429,6 +1430,27 @@ export const clientJS = `
         
         fileTreeContainer.innerHTML = renderTree(tree);
         
+        // 更新文件夹复选框状态的函数
+        function updateFolderCheckbox(folderRow) {
+            const childrenDiv = folderRow.nextElementSibling;
+            if (!childrenDiv || !childrenDiv.classList.contains('folder-children')) return;
+            const fileCheckboxes = childrenDiv.querySelectorAll('.file-checkbox');
+            const folderCheckbox = folderRow.querySelector('.folder-checkbox');
+            if (fileCheckboxes.length === 0) return;
+            
+            const checkedCount = Array.from(fileCheckboxes).filter(cb => cb.checked).length;
+            folderCheckbox.checked = checkedCount === fileCheckboxes.length;
+            folderCheckbox.indeterminate = checkedCount > 0 && checkedCount < fileCheckboxes.length;
+        }
+        
+        // 递归更新所有文件夹
+        function updateAllFolders() {
+            const folderRows = document.querySelectorAll('.folder-row');
+            folderRows.forEach(row => {
+                updateFolderCheckbox(row);
+            });
+        }
+        
         // 绑定文件夹点击展开/折叠
         document.querySelectorAll('.folder-row').forEach(row => {
             row.addEventListener('click', (e) => {
@@ -1445,23 +1467,53 @@ export const clientJS = `
             });
         });
         
-        // 初始化选中状态（默认全选）
+        // 初始化文件复选框事件
         document.querySelectorAll('.file-checkbox').forEach(cb => {
-            cb.addEventListener('change', updateBackupSelectedFiles);
-        });
-        document.querySelectorAll('.folder-checkbox').forEach(cb => {
             cb.addEventListener('change', (e) => {
-                const folderPath = e.target.dataset.path;
-                // 勾选/取消勾选文件夹下所有文件
-                const folderRow = e.target.closest('.folder-row');
-                const folderChildren = folderRow.nextElementSibling;
-                if (folderChildren) {
-                    const checkboxes = folderChildren.querySelectorAll('.file-checkbox');
-                    checkboxes.forEach(cb2 => cb2.checked = e.target.checked);
+                e.stopPropagation();
+                // 更新所在文件夹的状态
+                const parentRow = e.target.closest('.file-row').previousElementSibling;
+                while (parentRow && !parentRow.classList.contains('folder-row')) {
+                    // 向上找文件夹行
+                }
+                if (parentRow && parentRow.classList.contains('folder-row')) {
+                    updateFolderCheckbox(parentRow);
                 }
                 updateBackupSelectedFiles();
             });
         });
+        
+        // 文件夹复选框事件
+        document.querySelectorAll('.folder-checkbox').forEach(cb => {
+            cb.addEventListener('change', (e) => {
+                e.stopPropagation();
+                const folderRow = e.target.closest('.folder-row');
+                const childrenDiv = folderRow.nextElementSibling;
+                if (childrenDiv && childrenDiv.classList.contains('folder-children')) {
+                    const fileCheckboxes = childrenDiv.querySelectorAll('.file-checkbox');
+                    fileCheckboxes.forEach(cb2 => cb2.checked = e.target.checked);
+                    // 递归处理子文件夹
+                    const subFolderRows = childrenDiv.querySelectorAll('.folder-row');
+                    subFolderRows.forEach(subRow => {
+                        const subCheckbox = subRow.querySelector('.folder-checkbox');
+                        if (subCheckbox) {
+                            subCheckbox.checked = e.target.checked;
+                            subCheckbox.indeterminate = false;
+                            // 递归更新子文件夹的子文件
+                            const subChildren = subRow.nextElementSibling;
+                            if (subChildren && subChildren.classList.contains('folder-children')) {
+                                const subFiles = subChildren.querySelectorAll('.file-checkbox');
+                                subFiles.forEach(sf => sf.checked = e.target.checked);
+                            }
+                        }
+                    });
+                }
+                updateBackupSelectedFiles();
+            });
+        });
+        
+        // 初始化所有文件夹状态（默认全选）
+        updateAllFolders();
         updateBackupSelectedFiles();
     }
 
@@ -1478,6 +1530,19 @@ export const clientJS = `
             selectAllFiles.checked = count === backupFileTree.length;
             selectAllFiles.indeterminate = count > 0 && count < backupFileTree.length;
         }
+        
+        // 更新所有文件夹状态
+        const folderRows = document.querySelectorAll('.folder-row');
+        folderRows.forEach(row => {
+            const childrenDiv = row.nextElementSibling;
+            if (!childrenDiv || !childrenDiv.classList.contains('folder-children')) return;
+            const fileCheckboxes = childrenDiv.querySelectorAll('.file-checkbox');
+            const folderCheckbox = row.querySelector('.folder-checkbox');
+            if (fileCheckboxes.length === 0) return;
+            const checkedCount = Array.from(fileCheckboxes).filter(cb => cb.checked).length;
+            folderCheckbox.checked = checkedCount === fileCheckboxes.length;
+            folderCheckbox.indeterminate = checkedCount > 0 && checkedCount < fileCheckboxes.length;
+        });
     }
 
     function renderReleases() {
@@ -1755,9 +1820,13 @@ export const clientJS = `
 
     if (selectAllFiles) {
         selectAllFiles.addEventListener('change', (e) => {
-            document.querySelectorAll('.file-checkbox').forEach(cb => cb.checked = e.target.checked);
-            // 同时处理文件夹复选框？需要递归处理
-            document.querySelectorAll('.folder-checkbox').forEach(cb => cb.checked = e.target.checked);
+            const checked = e.target.checked;
+            document.querySelectorAll('.file-checkbox').forEach(cb => cb.checked = checked);
+            // 处理文件夹复选框
+            document.querySelectorAll('.folder-checkbox').forEach(cb => {
+                cb.checked = checked;
+                cb.indeterminate = false;
+            });
             updateBackupSelectedFiles();
         });
     }
@@ -2001,43 +2070,77 @@ export const clientJS = `
         detailView.innerHTML = html;
         attachDetailEventHandlers(type, project, versions);
         
-        // 加载 README
+        // 加载 README（如果是 GitHub 项目）
         if (type === 'github') {
-            await loadReadme(project, versions[currentVersionIndex], bucketId);
-        } else {
-            // Docker 暂时不实现 Overview，留空
+            const readmeContent = await loadReadme(project, versions[currentVersionIndex], bucketId);
+            const readmeContainer = document.getElementById('readme-container');
+            if (readmeContainer) {
+                if (readmeContent) {
+                    readmeContainer.innerHTML = marked.parse(readmeContent);
+                } else {
+                    readmeContainer.innerHTML = '<p class="empty-state">暂无 README 文件</p>';
+                }
+            }
+        }
+        
+        // 绑定标签切换事件
+        const tabs = document.querySelectorAll('#detailTabs .token-tab');
+        if (tabs.length) {
+            tabs.forEach(tab => {
+                tab.addEventListener('click', (e) => {
+                    const targetTab = e.target.dataset.tab;
+                    if (targetTab === currentDetailTab) return;
+                    // 更新激活状态
+                    tabs.forEach(t => t.classList.remove('active'));
+                    e.target.classList.add('active');
+                    // 切换内容显示
+                    const readmeContainer = document.getElementById('readme-container');
+                    const releasesContainer = document.getElementById('releases-container');
+                    if (readmeContainer && releasesContainer) {
+                        if (targetTab === 'readme') {
+                            readmeContainer.style.display = 'block';
+                            releasesContainer.style.display = 'none';
+                        } else {
+                            readmeContainer.style.display = 'none';
+                            releasesContainer.style.display = 'block';
+                        }
+                    }
+                    currentDetailTab = targetTab;
+                });
+            });
         }
     }
 
     async function loadReadme(project, version, bucketId) {
         // 在元数据中查找 README.md 文件（不区分大小写）
         const metaData = cachedMetaData[version.metaPath];
-        if (!metaData || !metaData.files) return;
+        if (!metaData || !metaData.files) return null;
         
         const readmeFile = metaData.files.find(f => f.path.toLowerCase() === 'readme.md');
         if (!readmeFile) {
             console.log('No README.md found in metadata');
-            return;
+            return null;
+        }
+        
+        // 如果已经缓存过，直接返回
+        if (cachedReadme[version.metaPath]) {
+            return cachedReadme[version.metaPath];
         }
         
         // 从 B2 获取内容
-        const readmeKey = readmeFile.key; // 已经在元数据中存储了 key
+        const readmeKey = readmeFile.key;
         try {
             const res = await fetch(\`/api/file?path=\${encodeURIComponent(readmeKey)}&bucketId=\${bucketId}\`);
             if (!res.ok) {
                 console.error('Failed to fetch README:', res.status);
-                return;
+                return null;
             }
             const content = await res.text();
-            
-            // 渲染 Markdown
-            const readmeHtml = marked.parse(content);
-            const readmeContainer = document.getElementById('readme-container');
-            if (readmeContainer) {
-                readmeContainer.innerHTML = readmeHtml;
-            }
+            cachedReadme[version.metaPath] = content;
+            return content;
         } catch (e) {
             console.error('Failed to load README:', e);
+            return null;
         }
     }
 
@@ -2079,6 +2182,7 @@ export const clientJS = `
         
         const filesHtml = renderTree(fileTree);
         
+        // 生成 Releases 列表 HTML
         const releasesHtml = releases.map(r => \`
             <div class="release-row file-row">
                 <i class="fas fa-tag release-icon"></i>
@@ -2093,6 +2197,20 @@ export const clientJS = `
             </div>
         \`).join('');
         
+        // 标签页（复用自动监控卡片样式）
+        const tabsHtml = \`
+            <div class="token-header" style="margin-top: 1rem; margin-bottom: 1rem;">
+                <div class="token-tabs" id="detailTabs">
+                    <div class="token-tab \${currentDetailTab === 'readme' ? 'active' : ''}" data-tab="readme">README</div>
+                    \${releases.length > 0 ? \`<div class="token-tab \${currentDetailTab === 'releases' ? 'active' : ''}" data-tab="releases">Releases (\${releases.length})</div>\` : ''}
+                </div>
+            </div>
+            <div id="detailTabContent">
+                <div id="readme-container" class="markdown-body" style="\${currentDetailTab !== 'readme' ? 'display: none;' : ''}"></div>
+                <div id="releases-container" class="releases-list" style="\${currentDetailTab !== 'releases' ? 'display: none;' : ''}">\${releasesHtml}</div>
+            </div>
+        \`;
+        
         return \`
             <div class="detail-header">
                 <button class="back-btn" id="backBtn"><i class="fas fa-arrow-left"></i> 返回列表</button>
@@ -2106,8 +2224,7 @@ export const clientJS = `
             </div>
             <h2><i class="fab fa-github"></i> \${project.name}</h2>
             <div class="file-list">\${filesHtml}</div>
-            \${releasesHtml ? '<div class="section-title">Releases</div>' + '<div class="releases-list">' + releasesHtml + '</div>' : ''}
-            <div id="readme-container" class="markdown-body"></div>
+            \${tabsHtml}
             <p style="margin-top:1rem; color:#475569;"><i class="fas fa-info-circle"></i> 文件列表和Releases随版本切换</p>
         \`;
     }
