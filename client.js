@@ -61,9 +61,7 @@ export const clientJS = `
     let currentVersionIndex = 0;
     let cachedMetaData = {}; // 按 metaPath 缓存元数据
     let cachedReadme = {}; // 按 metaPath 缓存 README 内容
-
-    // 当前详情页的标签（'readme' 或 'releases'）
-    let currentDetailTab = 'readme';
+    let currentDetailTab = 'readme'; // 当前详情页的标签（'readme' 或 'releases'）
 
     // ============================================================================
     // 3. 数据加载与更新
@@ -885,36 +883,16 @@ export const clientJS = `
         searchMode = searchMode === 'local' ? 'official' : 'local';
         if (modeText) modeText.innerText = searchMode === 'local' ? '存储库' : (currentTab === 'github' ? 'GitHub 搜索' : 'Docker 搜索');
         if (searchMode === 'local') {
-            // 切换到存储库模式：隐藏官方卡片，显示所有项目（清除过滤）
+            // 切换到存储库模式：隐藏官方卡片，显示所有项目（无高亮）
             if (officialCard) officialCard.classList.add('hide');
-            [githubGrid, dockerGrid].forEach(grid => {
-                if (grid) {
-                    grid.querySelectorAll('.project-card').forEach(card => card.style.display = '');
-                }
-            });
+            renderGrid(); // 重新渲染，移除任何高亮
         } else {
-            // 切换到官方模式：显示所有项目（清除过滤），准备官网搜索
-            [githubGrid, dockerGrid].forEach(grid => {
-                if (grid) {
-                    grid.querySelectorAll('.project-card').forEach(card => card.style.display = '');
-                }
-            });
-            if (officialCard) officialCard.classList.add('hide');
+            // 切换到官方模式：显示所有项目，准备官网搜索
+            renderGrid(); // 确保项目卡片正常显示
+            if (officialCard) officialCard.classList.add('hide'); // 官方卡片初始隐藏
         }
     }
     if (modeToggleBtn) modeToggleBtn.addEventListener('click', toggleSearchMode);
-
-    // 根据关键词过滤本地项目卡片（仅当前标签页）
-    function filterLocalProjects(query) {
-        const lowerQuery = query.toLowerCase();
-        const currentGrid = currentTab === 'github' ? githubGrid : dockerGrid;
-        if (!currentGrid) return;
-        const cards = currentGrid.querySelectorAll('.project-card');
-        cards.forEach(card => {
-            const name = card.dataset.name || '';
-            card.style.display = name.includes(lowerQuery) ? '' : 'none';
-        });
-    }
 
     async function loadOfficialResults(query, type, page) {
         if (officialLoading) return;
@@ -1061,13 +1039,58 @@ export const clientJS = `
         });
     }
 
+    // 根据关键词过滤本地项目卡片，匹配项置顶并高亮
+    function filterLocalProjects(query) {
+        if (!query) {
+            // 如果查询为空，直接重新渲染网格（移除高亮）
+            renderGrid();
+            return;
+        }
+        const lowerQuery = query.toLowerCase();
+        const projects = currentTab === 'github' ? githubProjects : dockerProjects;
+        const grid = currentTab === 'github' ? githubGrid : dockerGrid;
+        if (!grid) return;
+
+        // 分离匹配和非匹配项目
+        const matched = [];
+        const unmatched = [];
+        projects.forEach(proj => {
+            const name = proj.name.toLowerCase();
+            if (name.includes(lowerQuery)) {
+                matched.push(proj);
+            } else {
+                unmatched.push(proj);
+            }
+        });
+
+        // 清空网格
+        grid.innerHTML = '';
+
+        // 先渲染匹配项（带高亮类）
+        matched.forEach(proj => {
+            const card = createProjectCard(proj, currentTab);
+            card.classList.add('search-highlight');
+            grid.appendChild(card);
+        });
+
+        // 再渲染非匹配项（无高亮）
+        unmatched.forEach(proj => {
+            const card = createProjectCard(proj, currentTab);
+            grid.appendChild(card);
+        });
+    }
+
     if (homeSearchBtn) {
         homeSearchBtn.addEventListener('click', async () => {
             const query = homeSearchInput ? homeSearchInput.value.trim() : '';
-            if (!query) { alert('请输入搜索关键词'); return; }
             if (searchMode === 'local') {
-                // 存储库模式：隐藏官方卡片，过滤本地项目
+                // 存储库模式：隐藏官方卡片，执行本地过滤
                 if (officialCard) officialCard.classList.add('hide');
+                if (!query) {
+                    // 搜索框为空，显示所有项目（无高亮）
+                    renderGrid();
+                    return;
+                }
                 filterLocalProjects(query);
             } else {
                 // 官网搜索模式：清除所有本地过滤（显示所有项目），然后执行官网搜索
@@ -1076,6 +1099,7 @@ export const clientJS = `
                         grid.querySelectorAll('.project-card').forEach(card => card.style.display = '');
                     }
                 });
+                if (!query) { alert('请输入搜索关键词'); return; }
                 officialQuery = query;
                 officialType = currentTab === 'github' ? 'github' : 'docker';
                 officialCurrentPage = 1;
@@ -1353,7 +1377,7 @@ export const clientJS = `
                 const res = await fetch(\`/api/repo-tree?owner=\${project.owner}&repo=\${project.repo}\`);
                 if (!res.ok) throw new Error('获取文件树失败');
                 backupFileTree = await res.json();
-                renderBackupFileTree(); // 使用树状结构
+                renderBackupFileTree();
             } catch (e) {
                 fileTreeContainer.innerHTML = \`<div class="empty-state">加载失败：\${e.message}</div>\`;
             }
@@ -1388,7 +1412,7 @@ export const clientJS = `
         }
     }
 
-    // ===== 新增：排序函数 =====
+    // 排序函数
     function sortNodes(nodes) {
         return nodes.sort((a, b) => {
             if (a.type !== b.type) {
@@ -1396,6 +1420,39 @@ export const clientJS = `
             }
             return a.name.localeCompare(b.name);
         });
+    }
+
+    // 构建文件树
+    function buildFileTree(files) {
+        const tree = [];
+        const map = {};
+        files.forEach(f => {
+            const parts = f.path.split('/');
+            let current = tree;
+            let currentPath = '';
+            for (let i = 0; i < parts.length; i++) {
+                const part = parts[i];
+                currentPath += (currentPath ? '/' : '') + part;
+                let node = current.find(n => n.name === part && n.type === (i === parts.length - 1 ? 'file' : 'folder'));
+                if (!node) {
+                    node = {
+                        name: part,
+                        type: i === parts.length - 1 ? 'file' : 'folder',
+                        path: currentPath,
+                        size: i === parts.length - 1 ? f.size : 0,
+                        children: i === parts.length - 1 ? null : []
+                    };
+                    current.push(node);
+                    if (node.type === 'folder') {
+                        map[currentPath] = node.children;
+                    }
+                }
+                if (node.type === 'folder') {
+                    current = node.children;
+                }
+            }
+        });
+        return tree;
     }
 
     // 备份模态框中的文件树（带复选框，排序）
@@ -1834,7 +1891,7 @@ export const clientJS = `
                 cb.checked = checked;
                 cb.indeterminate = false;
             });
-            updateBackupSelectedFiles(); // 会更新文件夹状态
+            updateBackupSelectedFiles();
         });
     }
 
@@ -1989,39 +2046,6 @@ export const clientJS = `
         const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
         const i = Math.floor(Math.log(bytes) / Math.log(k));
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-    }
-
-    // 构建文件树
-    function buildFileTree(files) {
-        const tree = [];
-        const map = {};
-        files.forEach(f => {
-            const parts = f.path.split('/');
-            let current = tree;
-            let currentPath = '';
-            for (let i = 0; i < parts.length; i++) {
-                const part = parts[i];
-                currentPath += (currentPath ? '/' : '') + part;
-                let node = current.find(n => n.name === part && n.type === (i === parts.length - 1 ? 'file' : 'folder'));
-                if (!node) {
-                    node = {
-                        name: part,
-                        type: i === parts.length - 1 ? 'file' : 'folder',
-                        path: currentPath,
-                        size: i === parts.length - 1 ? f.size : 0,
-                        children: i === parts.length - 1 ? null : []
-                    };
-                    current.push(node);
-                    if (node.type === 'folder') {
-                        map[currentPath] = node.children;
-                    }
-                }
-                if (node.type === 'folder') {
-                    current = node.children;
-                }
-            }
-        });
-        return tree;
     }
 
     async function showDetail(type, project) {
@@ -2190,6 +2214,7 @@ export const clientJS = `
         
         const filesHtml = renderTree(fileTree);
         
+        // 生成 Releases 列表 HTML
         const releasesHtml = releases.map(r => \`
             <div class="release-row file-row">
                 <i class="fas fa-tag release-icon"></i>
@@ -2453,12 +2478,8 @@ export const clientJS = `
             if (query) {
                 filterLocalProjects(query);
             } else {
-                // 没有搜索词，显示所有
-                [githubGrid, dockerGrid].forEach(grid => {
-                    if (grid) {
-                        grid.querySelectorAll('.project-card').forEach(card => card.style.display = '');
-                    }
-                });
+                // 没有搜索词，显示所有（重新渲染网格）
+                renderGrid();
             }
         }
         if (searchMode === 'official' && modeText) {
