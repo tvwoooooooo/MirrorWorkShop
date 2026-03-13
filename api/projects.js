@@ -19,7 +19,7 @@ export async function handleProjects(type, env) {
         lastUpdate: row.last_update,
         versions: JSON.parse(row.versions || '[]'),
         description: row.description || '',
-        has_releases: row.has_releases === 1
+        has_releases: row.has_releases === 1 // 转换为布尔值
     }));
     return Response.json(projects);
 }
@@ -127,7 +127,7 @@ export async function handleDetailedProject(request, env) {
     }
 
     const taskId = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
-    await createMasterTask(env, taskId, owner, repo, bucketId, files || [], assets || [], description || '');
+    await createMasterTask(env, taskId, owner, repo, bucketId, files || [], assets || [], description);
     return Response.json({ success: true, taskId, message: '详细备份任务已提交，正在处理' });
 }
 
