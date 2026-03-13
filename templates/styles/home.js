@@ -302,19 +302,6 @@ export const home = `
     transform: scale(1.05);
 }
 
-/* 项目描述样式 */
-.project-description {
-    color: #475569;
-    font-size: 0.9rem;
-    margin: 0.5rem 0;
-    line-height: 1.4;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-}
-
 .project-meta {
     display: flex;
     flex-wrap: wrap;
@@ -353,16 +340,6 @@ export const home = `
     gap: 0.3rem;
     align-items: center;
     flex-wrap: wrap;
-}
-
-/* 存储库搜索高亮卡片 */
-.project-card.search-highlight {
-    background: #fef9e7;
-    border: 1px solid #fde68a;
-    box-shadow: 0 8px 20px rgba(251, 191, 36, 0.1);
-}
-.project-card.search-highlight .card-bg-icon {
-    opacity: 0.08; /* 保持与官网卡片一致 */
 }
 
 /* 桶卡片 */
@@ -690,7 +667,14 @@ export const home = `
 .file-row .file-size {
     color: #64748b;
     font-size: 0.85rem;
-    margin-right: 0.3rem; /* 减小右边距，让大小与下载按钮更近 */
+    margin-right: 0.5rem;
+    min-width: 80px;
+    text-align: right;
+}
+.file-row .file-date {
+    color: #64748b;
+    font-size: 0.85rem;
+    margin-right: 1rem;
     min-width: 80px;
     text-align: right;
 }
@@ -702,13 +686,13 @@ export const home = `
     padding: 0.3rem 0.8rem;
     border-radius: 20px;
     transition: background 0.2s;
-    margin-left: 0.8rem; /* 增加左边距，向右移动 */
+    margin-left: 0.5rem;
 }
 .file-row .btn-download:hover {
     background: #f1f5f9;
 }
 .release-row .btn-download {
-    margin-left: 0.8rem; /* 与文件行一致 */
+    margin-left: 0.5rem;
 }
 
 .file-list, .releases-list {
@@ -751,7 +735,7 @@ export const home = `
 .release-date {
     color: #64748b;
     font-size: 0.8rem;
-    margin-left: auto; /* 将日期推到最右边 */
+    margin-left: auto;
 }
 
 .release-download {
@@ -782,7 +766,7 @@ export const home = `
 .release-header .release-date {
     color: #64748b;
     font-size: 0.8rem;
-    margin-left: auto; /* 确保日期在最右边 */
+    margin-left: auto;
 }
 
 .release-header i.fa-chevron-down {
@@ -949,5 +933,17 @@ export const home = `
     word-break: normal;
     white-space: pre;
     overflow: visible;
+}
+
+.project-description {
+    color: #475569;
+    font-size: 0.9rem;
+    margin: 0.5rem 0;
+    line-height: 1.4;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
 }
 `;
