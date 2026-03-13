@@ -61,9 +61,7 @@ export const clientJS = `
     let currentVersionIndex = 0;
     let cachedMetaData = {}; // 按 metaPath 缓存元数据
     let cachedReadme = {}; // 按 metaPath 缓存 README 内容
-
-    // 当前详情页的标签（'readme' 或 'releases'）
-    let currentDetailTab = 'readme';
+    let currentDetailTab = 'readme'; // 详情页当前标签
 
     // ============================================================================
     // 3. 数据加载与更新
@@ -885,7 +883,7 @@ export const clientJS = `
         searchMode = searchMode === 'local' ? 'official' : 'local';
         if (modeText) modeText.innerText = searchMode === 'local' ? '存储库' : (currentTab === 'github' ? 'GitHub 搜索' : 'Docker 搜索');
         if (searchMode === 'local') {
-            // 切换到存储库模式：隐藏官方卡片，显示所有项目（无高亮）
+            // 切换到存储库模式：隐藏官方卡片，显示所有项目（清除过滤）
             if (officialCard) officialCard.classList.add('hide');
             renderGrid(); // 重新渲染，移除任何高亮
         } else {
@@ -895,6 +893,47 @@ export const clientJS = `
         }
     }
     if (modeToggleBtn) modeToggleBtn.addEventListener('click', toggleSearchMode);
+
+    // 根据关键词过滤本地项目卡片，匹配项置顶并高亮
+    function filterLocalProjects(query) {
+        if (!query) {
+            // 如果查询为空，直接重新渲染网格（移除高亮）
+            renderGrid();
+            return;
+        }
+        const lowerQuery = query.toLowerCase();
+        const projects = currentTab === 'github' ? githubProjects : dockerProjects;
+        const grid = currentTab === 'github' ? githubGrid : dockerGrid;
+        if (!grid) return;
+
+        // 分离匹配和非匹配项目
+        const matched = [];
+        const unmatched = [];
+        projects.forEach(proj => {
+            const name = proj.name.toLowerCase();
+            if (name.includes(lowerQuery)) {
+                matched.push(proj);
+            } else {
+                unmatched.push(proj);
+            }
+        });
+
+        // 清空网格
+        grid.innerHTML = '';
+
+        // 先渲染匹配项（带高亮类）
+        matched.forEach(proj => {
+            const card = createProjectCard(proj, currentTab);
+            card.classList.add('search-highlight');
+            grid.appendChild(card);
+        });
+
+        // 再渲染非匹配项（无高亮）
+        unmatched.forEach(proj => {
+            const card = createProjectCard(proj, currentTab);
+            grid.appendChild(card);
+        });
+    }
 
     async function loadOfficialResults(query, type, page) {
         if (officialLoading) return;
@@ -1121,8 +1160,6 @@ export const clientJS = `
 
             newItems.forEach(item => {
                 const isGitHub = item.type === 'github';
-                // 对描述进行转义，避免引号破坏 HTML
-                const description = item.description ? item.description.replace(/"/g, '&quot;') : '';
                 const itemHtml = \`
                     <div class="search-result-item">
                         <span style="display: flex; align-items: center; gap: 0.5rem;">
@@ -1134,7 +1171,7 @@ export const clientJS = `
                             </span>
                         </span>
                         <div>
-                            <button class="save-btn backup-btn" data-name="\${item.name}" data-type="\${item.type}" data-owner="\${item.owner}" data-repo="\${item.repo}" data-description="\${description}">完整备份</button>
+                            <button class="save-btn backup-btn" data-name="\${item.name}" data-type="\${item.type}" data-owner="\${item.owner}" data-repo="\${item.repo}" data-description="\${item.description.replace(/"/g, '&quot;')}">完整备份</button>
                         </div>
                     </div>\`;
                 if (searchResultList) searchResultList.insertAdjacentHTML('beforeend', itemHtml);
@@ -1157,7 +1194,7 @@ export const clientJS = `
                     const type = e.target.dataset.type;
                     const owner = e.target.dataset.owner;
                     const repo = e.target.dataset.repo;
-                    const description = e.target.dataset.description || '';
+                    const description = e.target.dataset.description;
                     if (type === 'github') {
                         openBackupContentModal({ name, type, owner, repo, description });
                     } else {
@@ -1376,7 +1413,7 @@ export const clientJS = `
         }
     }
 
-    // ===== 排序函数 =====
+    // ===== 新增：排序函数 =====
     function sortNodes(nodes) {
         return nodes.sort((a, b) => {
             if (a.type !== b.type) {
@@ -1936,47 +1973,6 @@ export const clientJS = `
         dockerProjects.forEach(p => { if (dockerGrid) dockerGrid.appendChild(createProjectCard(p, 'docker')); });
     }
 
-    // 根据关键词过滤本地项目卡片，匹配项置顶并高亮
-    function filterLocalProjects(query) {
-        if (!query) {
-            // 如果查询为空，直接重新渲染网格（移除高亮）
-            renderGrid();
-            return;
-        }
-        const lowerQuery = query.toLowerCase();
-        const projects = currentTab === 'github' ? githubProjects : dockerProjects;
-        const grid = currentTab === 'github' ? githubGrid : dockerGrid;
-        if (!grid) return;
-
-        // 分离匹配和非匹配项目
-        const matched = [];
-        const unmatched = [];
-        projects.forEach(proj => {
-            const name = proj.name.toLowerCase();
-            if (name.includes(lowerQuery)) {
-                matched.push(proj);
-            } else {
-                unmatched.push(proj);
-            }
-        });
-
-        // 清空网格
-        grid.innerHTML = '';
-
-        // 先渲染匹配项（带高亮类）
-        matched.forEach(proj => {
-            const card = createProjectCard(proj, currentTab);
-            card.classList.add('search-highlight');
-            grid.appendChild(card);
-        });
-
-        // 再渲染非匹配项（无高亮）
-        unmatched.forEach(proj => {
-            const card = createProjectCard(proj, currentTab);
-            grid.appendChild(card);
-        });
-    }
-
     function createProjectCard(proj, type) {
         const card = document.createElement('div'); card.className = 'project-card';
         card.dataset.name = proj.name.toLowerCase(); // 用于本地搜索
@@ -2152,7 +2148,7 @@ export const clientJS = `
         detailView.innerHTML = html;
         attachDetailEventHandlers(type, project, versions);
         
-        // 加载 README（如果是 GitHub 项目）
+        // 加载 README
         if (type === 'github') {
             const readmeContent = await loadReadme(project, versions[currentVersionIndex], bucketId);
             const readmeContainer = document.getElementById('readme-container');
@@ -2163,8 +2159,10 @@ export const clientJS = `
                     readmeContainer.innerHTML = '<p class="empty-state">暂无 README 文件</p>';
                 }
             }
+        } else {
+            // Docker 暂时不实现 Overview，留空
         }
-        
+
         // 绑定标签切换事件
         const tabs = document.querySelectorAll('#detailTabs .token-tab');
         if (tabs.length) {
@@ -2255,6 +2253,7 @@ export const clientJS = `
                             <i class="far fa-file file-icon"></i>
                             <span class="file-name">\${node.name}</span>
                             <span class="file-size">\${sizeStr}</span>
+                            <span class="file-date">\${currentDate}</span>
                             <button class="btn-icon btn-download" data-path="\${node.path}" data-bucket="\${versions[currentIdx].bucketId}"><i class="fas fa-download"></i></button>
                         </div>
                     \`;
@@ -2270,11 +2269,12 @@ export const clientJS = `
                 <i class="fas fa-tag release-icon"></i>
                 <div class="release-info">
                     <span class="release-tag">\${r.tag}</span>
-                    <span class="release-date">\${r.date || ''}</span>
+                    <span class="release-date">\${r.date}</span>
                 </div>
                 <div class="release-download">
-                    <span class="file-size">\${r.assets.reduce((sum, a) => sum + a.size, 0) ? formatFileSize(r.assets.reduce((sum, a) => sum + a.size, 0)) : '-'}</span>
-                    <button class="btn-icon btn-download" data-tag="\${r.tag}"><i class="fas fa-download"></i></button>
+                    <span class="file-size">\${r.assets && r.assets.length ? formatFileSize(r.assets[0].size) : '-'}</span>
+                    <span class="file-date">\${r.date}</span>
+                    <button class="btn-icon btn-download" data-assets='\${JSON.stringify(r.assets)}'><i class="fas fa-download"></i></button>
                 </div>
             </div>
         \`).join('');
