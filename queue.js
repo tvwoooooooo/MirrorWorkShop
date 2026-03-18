@@ -118,7 +118,6 @@ export async function queueHandler(batch, env, ctx) {
             }
           } catch(e) {
             console.error(`[Docker-Master] CRITICAL: Failed to upload manifest file for ${repo}:${tag}. Error: ${e.message}`);
-            // 决定是继续还是抛出错误，这里选择继续，但记录一个严重的警告
           }
           
           // 处理目标 manifest 的 layers
@@ -130,11 +129,7 @@ export async function queueHandler(batch, env, ctx) {
         if (master) {
           // 从 metadata 中获取 tags
           const tagsFromMetadata = master.metadata?.tags || [];
-          try {
-            await saveProjectToDb(env, master, tagsFromMetadata);
-          } catch (e) {
-            console.error(`[Docker-Master] Failed to save project metadata for task ${taskId}:`, e);
-          }
+          await saveProjectToDb(env, master, tagsFromMetadata);
         }
 
         // 检查是否有任何任务被创建
@@ -142,11 +137,9 @@ export async function queueHandler(batch, env, ctx) {
         if (updatedMaster.totalAssets === 0) {
           // 没有创建任何 layer 任务
           if (updatedMaster.failedAssets && updatedMaster.failedAssets.length > 0) {
-            // 有失败记录但没有任务，标记为失败
             console.log(`[Docker-Master] No layers created and have failures, marking as failed`);
             await completeMasterTask(env, taskId, 'failed', [], updatedMaster.failedAssets);
           } else {
-            // 没有任何任务也没有失败（不应该发生），标记为 completed
             console.log(`[Docker-Master] No layers created and no failures, marking as completed (empty)`);
             await completeMasterTask(env, taskId, 'completed', [], []);
           }

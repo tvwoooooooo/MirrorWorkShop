@@ -885,11 +885,9 @@ export const clientJS = `
         searchMode = searchMode === 'local' ? 'official' : 'local';
         if (modeText) modeText.innerText = searchMode === 'local' ? '存储库' : (currentTab === 'github' ? 'GitHub 搜索' : 'Docker 搜索');
         if (searchMode === 'local') {
-            // 切换到存储库模式：隐藏官方卡片，显示所有项目（无高亮）
             if (officialCard) officialCard.classList.add('hide');
             renderGrid(); // 重新渲染，移除任何高亮
         } else {
-            // 切换到官方模式：显示所有项目，准备官网搜索
             renderGrid(); // 确保项目卡片正常显示
             if (officialCard) officialCard.classList.add('hide'); // 官方卡片初始隐藏
         }
@@ -1041,37 +1039,6 @@ export const clientJS = `
         });
     }
 
-    if (homeSearchBtn) {
-        homeSearchBtn.addEventListener('click', async () => {
-            const query = homeSearchInput ? homeSearchInput.value.trim() : '';
-            if (searchMode === 'local') {
-                // 存储库模式：隐藏官方卡片，执行本地过滤
-                if (officialCard) officialCard.classList.add('hide');
-                if (!query) {
-                    // 搜索框为空，显示所有项目（无高亮）
-                    renderGrid();
-                    return;
-                }
-                filterLocalProjects(query);
-            } else {
-                // 官网搜索模式：清除所有本地过滤（显示所有项目），然后执行官网搜索
-                [githubGrid, dockerGrid].forEach(grid => {
-                    if (grid) {
-                        grid.querySelectorAll('.project-card').forEach(card => card.style.display = '');
-                    }
-                });
-                if (!query) { alert('请输入搜索关键词'); return; }
-                officialQuery = query;
-                officialType = currentTab === 'github' ? 'github' : 'docker';
-                officialCurrentPage = 1;
-                officialHasMore = true;
-                if (officialBadgeText) officialBadgeText.innerText = currentTab === 'github' ? 'GitHub' : 'Docker';
-                if (officialCard) officialCard.classList.remove('hide');
-                await loadOfficialResults(officialQuery, officialType, 1);
-            }
-        });
-    }
-
     // 根据关键词过滤本地项目卡片，匹配项置顶并高亮
     function filterLocalProjects(query) {
         if (!query) {
@@ -1110,6 +1077,37 @@ export const clientJS = `
         unmatched.forEach(proj => {
             const card = createProjectCard(proj, currentTab);
             grid.appendChild(card);
+        });
+    }
+
+    if (homeSearchBtn) {
+        homeSearchBtn.addEventListener('click', async () => {
+            const query = homeSearchInput ? homeSearchInput.value.trim() : '';
+            if (searchMode === 'local') {
+                // 存储库模式：隐藏官方卡片，执行本地过滤
+                if (officialCard) officialCard.classList.add('hide');
+                if (!query) {
+                    // 搜索框为空，显示所有项目（无高亮）
+                    renderGrid();
+                    return;
+                }
+                filterLocalProjects(query);
+            } else {
+                // 官网搜索模式：清除所有本地过滤（显示所有项目），然后执行官网搜索
+                [githubGrid, dockerGrid].forEach(grid => {
+                    if (grid) {
+                        grid.querySelectorAll('.project-card').forEach(card => card.style.display = '');
+                    }
+                });
+                if (!query) { alert('请输入搜索关键词'); return; }
+                officialQuery = query;
+                officialType = currentTab === 'github' ? 'github' : 'docker';
+                officialCurrentPage = 1;
+                officialHasMore = true;
+                if (officialBadgeText) officialBadgeText.innerText = currentTab === 'github' ? 'GitHub' : 'Docker';
+                if (officialCard) officialCard.classList.remove('hide');
+                await loadOfficialResults(officialQuery, officialType, 1);
+            }
         });
     }
 
@@ -1173,7 +1171,7 @@ export const clientJS = `
                             </span>
                         </span>
                         <div>
-                            <button class="save-btn backup-btn" data-name="\${item.name}" data-type="\${item.type}" data-owner="\${item.owner}" data-repo="\${item.repo}" data-description="\${item.description ? item.description.replace(/"/g, '&quot;') : ''}">完整备份</button>
+                            <button class="save-btn backup-btn" data-name="\${item.name}" data-type="\${item.type}" data-owner="\${item.owner}" data-repo="\${item.repo}" data-description="\${item.description.replace(/"/g, '&quot;')}">完整备份</button>
                         </div>
                     </div>\`;
                 if (searchResultList) searchResultList.insertAdjacentHTML('beforeend', itemHtml);
@@ -1415,7 +1413,7 @@ export const clientJS = `
         }
     }
 
-    // 排序函数：文件夹在前，文件在后，按名称字母排序
+    // ===== 新增：排序函数 =====
     function sortNodes(nodes) {
         return nodes.sort((a, b) => {
             if (a.type !== b.type) {
@@ -1961,7 +1959,7 @@ export const clientJS = `
     }
 
     // ============================================================================
-    // 14. 项目卡片渲染（从 D1 读取数据）
+    // 14. 项目卡片渲染
     // ============================================================================
 
     const githubGrid = safeGet('githubGrid');
@@ -1979,12 +1977,14 @@ export const clientJS = `
         const card = document.createElement('div'); card.className = 'project-card';
         card.dataset.name = proj.name.toLowerCase(); // 用于本地搜索
         const isGitHub = type === 'github';
+        // 从 versions 中获取最新版本的日期
+        const latestVersion = proj.versions && proj.versions.length > 0 ? proj.versions[proj.versions.length - 1] : { date: proj.lastUpdate };
         const displayName = isGitHub ? proj.name : proj.name;
         const bgIconClass = type === 'github' ? 'fab fa-github' : 'fab fa-docker';
         // 根据 has_releases 决定是否显示 Releases 按钮
         const releaseButton = proj.has_releases ? \`<button class="btn-icon btn-release"><i class="fas fa-tag"></i> Releases</button>\` : '';
         
-        // 构建卡片 HTML（只显示最后更新日期）
+        // 构建卡片 HTML（添加描述）
         card.innerHTML = \`
             <div class="card-bg-icon"><i class="\${bgIconClass}"></i></div>
             <div class="card-header">
@@ -1996,6 +1996,7 @@ export const clientJS = `
             <div class="project-description">\${proj.description || '暂无描述'}</div>
             <div class="project-meta">
                 <span class="meta-item"><i class="far fa-calendar-alt"></i> 最后更新: \${proj.lastUpdate}</span>
+                <span class="meta-item"><i class="far fa-clock"></i> 存入: \${latestVersion.date}</span>
             </div>
             <div class="action-buttons">
                 <button class="btn-icon git-link-btn"><i class="far fa-copy"></i> Git链接</button>
@@ -2017,6 +2018,7 @@ export const clientJS = `
                 const versions = proj.versions || [];
                 if (versions.length === 0) return;
                 
+                // 收集所有版本的 releases 数据
                 const allReleases = [];
                 for (const version of versions) {
                     try {
@@ -2024,10 +2026,11 @@ export const clientJS = `
                         if (!res.ok) continue;
                         const metaData = await res.json();
                         if (metaData.releases && metaData.releases.length > 0) {
+                            // 每个 metaData.releases 已经是按 tag 分组的数组
                             metaData.releases.forEach(r => {
                                 allReleases.push({
                                     date: r.date || version.date,
-                                    releases: [r]
+                                    releases: [r] // 每个 release 作为一个独立版本展示
                                 });
                             });
                         }
@@ -2145,7 +2148,7 @@ export const clientJS = `
         detailView.innerHTML = html;
         attachDetailEventHandlers(type, project, versions);
         
-        // 加载 README（如果是 GitHub 项目）
+        // 加载 README
         if (type === 'github') {
             const readmeContent = await loadReadme(project, versions[currentVersionIndex], bucketId);
             const readmeContainer = document.getElementById('readme-container');
@@ -2228,6 +2231,15 @@ export const clientJS = `
         // 对 files 按路径构建树，并在每层排序：文件夹在前，文件在后，按名称字母排序
         const fileTree = buildFileTree(files);
         
+        function sortNodes(nodes) {
+            return nodes.sort((a, b) => {
+                if (a.type !== b.type) {
+                    return a.type === 'folder' ? -1 : 1; // 文件夹在前
+                }
+                return a.name.localeCompare(b.name);
+            });
+        }
+        
         function renderTree(nodes, level = 0) {
             return sortNodes(nodes).map(node => {
                 if (node.type === 'folder') {
@@ -2266,8 +2278,8 @@ export const clientJS = `
                     <span class="release-date">\${r.date || ''}</span>
                 </div>
                 <div class="release-download">
-                    <span class="file-size">\${r.assets && r.assets.length ? formatFileSize(r.assets[0].size) : '-'}</span>
-                    <button class="btn-icon btn-download" data-url="\${r.assets && r.assets.length ? r.assets[0].url : '#'}"><i class="fas fa-download"></i></button>
+                    <span class="file-size">\${r.assets && r.assets[0] ? formatFileSize(r.assets[0].size) : '-'}</span>
+                    <button class="btn-icon btn-download" data-url="\${r.assets && r.assets[0] ? r.assets[0].url : '#'}"><i class="fas fa-download"></i></button>
                 </div>
             </div>
         \`).join('');
@@ -2396,7 +2408,7 @@ export const clientJS = `
                 if (path && bucket) {
                     // 构造下载链接，需要后端实现 /api/download
                     alert(\`下载文件: \${path}\`);
-                } else if (url && url !== '#') {
+                } else if (url) {
                     window.open(url, '_blank');
                 }
             });

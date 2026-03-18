@@ -8,7 +8,7 @@ import { handleQueueStatus } from '../queue.js';
 import { handleVerify } from './verify.js';
 import { handleGithubTokens, handleDockerTokens } from './tokens.js';
 import { handleMeta } from './meta.js';
-import { handleFile } from './file.js'; // 新增
+import { handleFile } from './file.js';
 
 export async function handleAPI(request, env) {
   const url = new URL(request.url);

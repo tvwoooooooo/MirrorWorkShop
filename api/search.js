@@ -27,6 +27,7 @@ export async function handleSearch(request, env) {
     });
   } catch (error) {
     const errorLogs = [`Search API crashed: ${error.message}`];
+    // In case of a crash, return the logs we have, if any exist on the result object
     const resultLogs = error.result ? error.result.logs : [];
     return new Response(JSON.stringify({ error: error.message, items: [], total: 0, logs: [...errorLogs, ...resultLogs] }), { status: 500 });
   }
